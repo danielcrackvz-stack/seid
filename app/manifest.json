@@ -1,0 +1,17 @@
+{
+  "name": "SEID — Panel de trabajo",
+  "short_name": "SEID",
+  "description": "Demostración del panel de SEID para el Ing. Abel Galarza, Santa Cruz, Bolivia.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F5F7",
+  "theme_color": "#014397",
+  "lang": "es-BO",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
