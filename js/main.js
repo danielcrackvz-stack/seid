@@ -38,6 +38,13 @@
       var message = MESSAGES[key] || MESSAGES.general;
       links[i].setAttribute('href', whatsappUrl(message));
     }
+    var catalog = typeof WHATSAPP_CATALOG !== 'undefined'
+      ? WHATSAPP_CATALOG
+      : 'https://wa.me/c/' + getWhatsAppNumber();
+    var catLinks = document.querySelectorAll('[data-catalog]');
+    for (var j = 0; j < catLinks.length; j++) {
+      catLinks[j].setAttribute('href', catalog);
+    }
   }
 
   function setupMenu() {
@@ -165,7 +172,11 @@
     var live = document.querySelectorAll('.js-wa-number-live');
     for (var j = 0; j < live.length; j++) {
       live[j].hidden = show;
-      if (!show) live[j].textContent = getWhatsAppNumber();
+      if (!show) {
+        var n = getWhatsAppNumber();
+        var pretty = n.indexOf('591') === 0 ? '+591 ' + n.slice(3, 6) + ' ' + n.slice(6) : '+' + n;
+        live[j].textContent = pretty;
+      }
     }
   }
 

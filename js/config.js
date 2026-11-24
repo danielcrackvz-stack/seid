@@ -1,11 +1,9 @@
 /* SEID — configuración pública de la landing
  *
- * Para publicar con el número real del Ing. Abel Galarza, cambie
- * únicamente la constante WHATSAPP_NUMBER (una sola línea).
- *
- * Formato: código de país + número, solo dígitos, sin "+" ni espacios.
- * Bolivia = 591. Ejemplo: 5917XXXXXXX
- *
- * PLACEHOLDER — falta el número real de WhatsApp Business.
+ * Número de WhatsApp Business del Ing. Abel Galarza.
+ * Formato internacional, solo dígitos, sin "+" ni espacios.
  */
-const WHATSAPP_NUMBER = '591XXXXXXXX';
+const WHATSAPP_NUMBER = '59173643342';
+
+/* Catálogo de WhatsApp Business. */
+const WHATSAPP_CATALOG = 'https://wa.me/c/59173643342';
