@@ -15,6 +15,13 @@ Proyecto para la empresa **SEID** del Ing. Abel Galarza (Santa Cruz, Bolivia).
 3. Agente de WhatsApp con cotizaciones.
 4. Calendario.
 
+## Demos
+
+- Landing (fase 1): [https://danielcrackvz-stack.github.io/seid/](https://danielcrackvz-stack.github.io/seid/)
+- Panel de trabajo / app admin (demo, fase 2): [https://danielcrackvz-stack.github.io/seid/app/](https://danielcrackvz-stack.github.io/seid/app/)
+
+El código de la demo del panel está en `app/demo/` (HTML, CSS y JS estáticos, sin backend). Los datos de ejemplo se guardan en el navegador. El inicio de sesión está simulado.
+
 ## Demo de la landing (fase 1)
 
 - URL: [https://danielcrackvz-stack.github.io/seid/](https://danielcrackvz-stack.github.io/seid/)
