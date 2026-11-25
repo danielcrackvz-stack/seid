@@ -25,6 +25,7 @@
   <meta name="twitter:image" content="https://danielcrackvz-stack.github.io/seid/og-image.png">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="preload" as="image" href="img/hero-instalacion-aires.webp" type="image/webp">
   <link rel="stylesheet" href="css/styles.css">
   <script type="application/ld+json">
   {
@@ -45,13 +46,14 @@
   }
   </script>
 </head>
-<body id="inicio">
+<body id="inicio" class="has-hero">
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
-  <header class="site-header">
+  <header class="site-header" id="site-header">
     <div class="wrap site-header__inner">
       <a class="brand" href="#inicio">
-        <img src="brand/logo-mark.svg" alt="SEID, Servicios de Electricidad Industrial y Domiciliaria" width="215" height="78">
+        <img class="brand__logo brand__logo--color" src="brand/logo-mark.svg" alt="SEID, Servicios de Electricidad Industrial y Domiciliaria" width="215" height="78">
+        <img class="brand__logo brand__logo--inverse" src="brand/logo-mark-inverse.svg" alt="" width="215" height="78" aria-hidden="true">
       </a>
 
       <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-principal">
@@ -63,6 +65,7 @@
       <nav class="site-nav" id="menu-principal" aria-label="Principal">
         <ul>
           <li><a href="#servicios">Servicios</a></li>
+          <li><a href="#trabajos">Trabajos</a></li>
           <li><a href="#por-que-elegirnos">Por qué SEID</a></li>
           <li><a href="#proceso">Proceso</a></li>
           <li><a href="#cotizacion">Cotización</a></li>
@@ -79,49 +82,25 @@
 
   <main id="contenido">
     <section class="hero" aria-labelledby="hero-title">
-      <div class="wrap hero__grid">
+      <div class="hero__media" aria-hidden="true">
+        <picture>
+              <source type="image/webp" srcset="img/hero-instalacion-aires.webp">
+              <img src="img/hero-instalacion-aires.jpg" alt="" width="570" height="432" fetchpriority="high" decoding="async">
+            </picture>
+      </div>
+      <div class="hero__scrim" aria-hidden="true"></div>
+      <div class="wrap hero__content">
         <div class="hero__offer">
           <p class="hero__meta">Ing. Abel Galarza · Santa Cruz de la Sierra, Bolivia</p>
           <h1 id="hero-title">Instalación y mantenimiento.</h1>
           <p class="lead">En Santa Cruz de la Sierra: aires acondicionados, electricidad, plomería e instalación de gas. Atención directa del ingeniero. Empresa formal, con factura.</p>
           <div class="hero__actions">
-            <a class="btn btn--primary" data-wa="general" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20un%20servicio%20de%20SEID.">
+            <a class="btn btn--on-blue" data-wa="general" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20un%20servicio%20de%20SEID.">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm.01 1.67a8.22 8.22 0 0 1 5.82 2.42 8.22 8.22 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23-1.48 0-2.93-.39-4.19-1.15l-.3-.17-3.12.82.83-3.04-.2-.32a8.22 8.22 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24zM8.53 7.33c-.16 0-.43.06-.66.31-.22.25-.87.85-.87 2.07 0 1.22.89 2.39 1 2.56.12.17 1.76 2.67 4.25 3.73 1.75.75 2.27.82 2.74.73.46-.08 1.49-.61 1.7-1.2.21-.59.21-1.09.15-1.2-.07-.11-.25-.17-.52-.3-.27-.14-1.62-.8-1.87-.89-.25-.08-.43-.13-.62.13s-.71.89-.87 1.07c-.16.17-.32.2-.59.07-.27-.14-1.15-.42-2.19-1.35-1.21-1.07-1.81-2.1-2.08-2.53-.16-.26-.03-.4.12-.55.13-.13.27-.32.41-.48.14-.17.18-.28.27-.47.09-.17.05-.33-.02-.47-.07-.14-.61-1.46-.84-2.01-.22-.52-.44-.45-.62-.46h-.52z"/></svg> Consultar por WhatsApp
             </a>
-            <a class="btn btn--text" data-catalog href="https://wa.me/c/59173643342">Ver catálogo</a>
+            <a class="btn btn--text btn--on-dark" data-catalog href="https://wa.me/c/59173643342">Ver catálogo</a>
           </div>
         </div>
-
-        <ul class="service-index" aria-label="Servicios">
-          <li>
-            <a data-wa="aires" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20instalaci%C3%B3n%20o%20mantenimiento%20de%20aires%20acondicionados.">
-              <strong>Aires acondicionados</strong>
-              <em>Consultar</em>
-              <span>Instalación y mantenimiento preventivo y correctivo.</span>
-            </a>
-          </li>
-          <li>
-            <a data-wa="electricidad" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20un%20trabajo%20de%20electricidad%20%28domiciliaria%20o%20industrial%29.">
-              <strong>Electricidad</strong>
-              <em>Consultar</em>
-              <span>Domiciliaria monofásica y trifásica, e industrial.</span>
-            </a>
-          </li>
-          <li>
-            <a data-wa="plomeria" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20un%20trabajo%20de%20plomer%C3%ADa%20%28agua%20potable%2C%20sanitaria%20o%20pluvial%29.">
-              <strong>Plomería</strong>
-              <em>Consultar</em>
-              <span>Agua potable, sanitaria y desagüe pluvial.</span>
-            </a>
-          </li>
-          <li>
-            <a data-wa="gas" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20instalaci%C3%B3n%20de%20gas.">
-              <strong>Instalación de gas</strong>
-              <em>Consultar</em>
-              <span>Para vivienda o comercio, coordinada con el ingeniero.</span>
-            </a>
-          </li>
-        </ul>
       </div>
     </section>
 
@@ -131,8 +110,15 @@
           <h2 id="servicios-title">Qué comprende cada servicio</h2>
           <p>Cuéntenos el trabajo por WhatsApp o revise el catálogo de equipos. Le confirmamos alcance y visita.</p>
         </div>
-        <div class="service-detail">
-          <article>
+
+        <article class="service-block">
+          <div class="service-block__media">
+            <picture>
+              <source type="image/webp" srcset="img/servicio-aires.webp">
+              <img src="img/servicio-aires.jpg" alt="Carga de refrigerante en una unidad exterior, con manómetros, mangueras y bombona." width="424" height="564" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <div class="service-block__body">
             <h3>Aires acondicionados</h3>
             <p>Instalación y mantenimiento preventivo y correctivo de equipos de climatización.</p>
             <ul>
@@ -141,8 +127,17 @@
               <li>Central y ventana</li>
             </ul>
             <a class="more" data-wa="aires" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20instalaci%C3%B3n%20o%20mantenimiento%20de%20aires%20acondicionados.">Consultar aires acondicionados</a>
-          </article>
-          <article>
+          </div>
+        </article>
+
+        <article class="service-block service-block--alt">
+          <div class="service-block__media">
+            <picture>
+              <source type="image/webp" srcset="img/servicio-electricidad.webp">
+              <img src="img/servicio-electricidad.jpg" alt="Trabajo en un poste eléctrico, con palmeras, en el entorno de Santa Cruz." width="424" height="564" loading="lazy" decoding="async">
+            </picture>
+          </div>
+          <div class="service-block__body">
             <h3>Electricidad</h3>
             <p>Instalaciones y trabajos eléctricos para vivienda y para uso industrial.</p>
             <ul>
@@ -151,7 +146,10 @@
               <li>Electricidad industrial</li>
             </ul>
             <a class="more" data-wa="electricidad" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20un%20trabajo%20de%20electricidad%20%28domiciliaria%20o%20industrial%29.">Consultar electricidad</a>
-          </article>
+          </div>
+        </article>
+
+        <div class="service-plain">
           <article>
             <h3>Plomería</h3>
             <p>Trabajos de agua para el hogar, el comercio o la edificación.</p>
@@ -175,7 +173,133 @@
       </div>
     </section>
 
-    <section class="section" id="por-que-elegirnos" aria-labelledby="razones-title" style="padding-top:0">
+    <section class="section section--works" id="trabajos" aria-labelledby="trabajos-title">
+      <div class="wrap">
+        <div class="section__head">
+          <h2 id="trabajos-title">Trabajos realizados</h2>
+          <p>Fotos de trabajos y equipos del catálogo de WhatsApp. Consulte cualquier ítem; le respondemos con el alcance y la visita.</p>
+        </div>
+        <ul class="work-grid">
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Transformadores&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-transformadores.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-transformadores.jpg&quot;, &quot;w&quot;: 478, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Transformadores monofásicos en nave industrial, rotulados para operar sin tensión.&quot;}]}" aria-label="Ampliar foto: Transformadores">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-transformadores.webp">
+              <img src="img/trabajo-transformadores.jpg" alt="Transformadores monofásicos en nave industrial, rotulados para operar sin tensión." width="478" height="564" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Transformadores</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por Transformadores." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Colocación de panel trifásico&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-panel-trifasico.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-panel-trifasico.jpg&quot;, &quot;w&quot;: 425, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Gabinete de medidores con puertas abiertas y acometidas en un cuarto de medidores.&quot;}, {&quot;webp&quot;: &quot;img/trabajo-panel-trifasico-2.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-panel-trifasico-2.jpg&quot;, &quot;w&quot;: 471, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Cámara de cables en un gabinete de medición.&quot;}]}" aria-label="Ampliar foto: Colocación de panel trifásico">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-panel-trifasico.webp">
+              <img src="img/trabajo-panel-trifasico.jpg" alt="Gabinete de medidores con puertas abiertas y acometidas en un cuarto de medidores." width="425" height="564" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Colocación de panel trifásico</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por colocación de panel trifásico." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Instalación de inverter&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-inverter.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-inverter.jpg&quot;, &quot;w&quot;: 424, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Unidad exterior en proceso de carga, con manómetros, mangueras y bombona.&quot;}, {&quot;webp&quot;: &quot;img/trabajo-inverter-2.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-inverter-2.jpg&quot;, &quot;w&quot;: 471, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Detalle de una unidad exterior durante la instalación.&quot;}]}" aria-label="Ampliar foto: Instalación de inverter">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-inverter.webp">
+              <img src="img/trabajo-inverter.jpg" alt="Unidad exterior en proceso de carga, con manómetros, mangueras y bombona." width="424" height="564" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Instalación de inverter</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por instalación de inverter." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Proyectos eléctricos&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-proyectos-electricos.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-proyectos-electricos.jpg&quot;, &quot;w&quot;: 422, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Tableros eléctricos cargados en la caja de una camioneta, listos para su instalación.&quot;}, {&quot;webp&quot;: &quot;img/trabajo-proyectos-electricos-2.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-proyectos-electricos-2.jpg&quot;, &quot;w&quot;: 472, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Gabinete de medidores con acometidas y rotulación.&quot;}]}" aria-label="Ampliar foto: Proyectos eléctricos">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-proyectos-electricos.webp">
+              <img src="img/trabajo-proyectos-electricos.jpg" alt="Tableros eléctricos cargados en la caja de una camioneta, listos para su instalación." width="422" height="564" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Proyectos eléctricos</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por un proyecto eléctrico." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Electricidad industrial&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-electricidad-industrial.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-electricidad-industrial.jpg&quot;, &quot;w&quot;: 471, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Trabajo en un poste frente a una subestación y líneas de alta tensión.&quot;}, {&quot;webp&quot;: &quot;img/trabajo-electricidad-industrial-2.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-electricidad-industrial-2.jpg&quot;, &quot;w&quot;: 426, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Tablero de interruptores en una instalación industrial.&quot;}]}" aria-label="Ampliar foto: Electricidad industrial">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-electricidad-industrial.webp">
+              <img src="img/trabajo-electricidad-industrial.jpg" alt="Trabajo en un poste frente a una subestación y líneas de alta tensión." width="471" height="564" style="object-position:center 18%" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Electricidad industrial</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por un trabajo de electricidad industrial." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Electricidad domiciliaria&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-electricidad-domiciliaria.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-electricidad-domiciliaria.jpg&quot;, &quot;w&quot;: 471, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Tablero domiciliario de interruptores termomagnéticos, con cableado ordenado.&quot;}, {&quot;webp&quot;: &quot;img/trabajo-electricidad-domiciliaria-2.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-electricidad-domiciliaria-2.jpg&quot;, &quot;w&quot;: 425, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Iluminación de cielo falso con lámparas colgantes.&quot;}]}" aria-label="Ampliar foto: Electricidad domiciliaria">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-electricidad-domiciliaria.webp">
+              <img src="img/trabajo-electricidad-domiciliaria.jpg" alt="Tablero domiciliario de interruptores termomagnéticos, con cableado ordenado." width="471" height="564" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Electricidad domiciliaria</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por un trabajo de electricidad domiciliaria." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Mantenimiento de aires acondicionados&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-mantenimiento-aires.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-mantenimiento-aires.jpg&quot;, &quot;w&quot;: 479, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Unidad exterior inverter vista de frente, con la rejilla y la etiqueta energética.&quot;}, {&quot;webp&quot;: &quot;img/trabajo-mantenimiento-aires-2.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-mantenimiento-aires-2.jpg&quot;, &quot;w&quot;: 481, &quot;h&quot;: 564, &quot;alt&quot;: &quot;Unidades exteriores de aire acondicionado en un patio.&quot;}]}" aria-label="Ampliar foto: Mantenimiento de aires acondicionados">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-mantenimiento-aires.webp">
+              <img src="img/trabajo-mantenimiento-aires.jpg" alt="Unidad exterior inverter vista de frente, con la rejilla y la etiqueta energética." width="479" height="564" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Mantenimiento de aires acondicionados</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por mantenimiento de aires acondicionados." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+          <li>
+            <figure class="work-card">
+              <button type="button" class="work-card__photo" data-lightbox="{&quot;title&quot;: &quot;Instalación de aires acondicionados&quot;, &quot;images&quot;: [{&quot;webp&quot;: &quot;img/trabajo-instalacion-aires.webp&quot;, &quot;jpg&quot;: &quot;img/trabajo-instalacion-aires.jpg&quot;, &quot;w&quot;: 570, &quot;h&quot;: 432, &quot;alt&quot;: &quot;Conjunto de unidades exteriores de aire acondicionado instaladas en la azotea de un edificio.&quot;}]}" aria-label="Ampliar foto: Instalación de aires acondicionados">
+                <picture>
+              <source type="image/webp" srcset="img/trabajo-instalacion-aires.webp">
+              <img src="img/trabajo-instalacion-aires.jpg" alt="Conjunto de unidades exteriores de aire acondicionado instaladas en la azotea de un edificio." width="570" height="432" loading="lazy" decoding="async">
+            </picture>
+              </button>
+              <figcaption>
+                <h3>Instalación de aires acondicionados</h3>
+                <a data-wa data-wa-text="Hola, quisiera consultar por instalación de aires acondicionados." href="https://wa.me/59173643342">Consultar por WhatsApp</a>
+              </figcaption>
+            </figure>
+          </li>
+        </ul>
+        <p class="works-catalog">
+          <a class="btn btn--text" data-catalog href="https://wa.me/c/59173643342">Ver el catálogo completo en WhatsApp</a>
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="por-que-elegirnos" aria-labelledby="razones-title">
       <div class="wrap">
         <div class="section__head">
           <h2 id="razones-title">Un trato directo y formal</h2>
@@ -298,6 +422,7 @@
       <div>
         <ul class="footer-links">
           <li><a href="#servicios">Servicios</a></li>
+          <li><a href="#trabajos">Trabajos</a></li>
           <li><a href="#cotizacion">Cotización</a></li>
           <li><a data-catalog href="https://wa.me/c/59173643342">Catálogo</a></li>
           <li><a data-wa="general" href="https://wa.me/59173643342?text=Hola%2C%20quisiera%20consultar%20por%20un%20servicio%20de%20SEID.">WhatsApp</a></li>
@@ -311,6 +436,20 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm.01 1.67a8.22 8.22 0 0 1 5.82 2.42 8.22 8.22 0 0 1 2.41 5.83c0 4.54-3.7 8.23-8.24 8.23-1.48 0-2.93-.39-4.19-1.15l-.3-.17-3.12.82.83-3.04-.2-.32a8.22 8.22 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24zM8.53 7.33c-.16 0-.43.06-.66.31-.22.25-.87.85-.87 2.07 0 1.22.89 2.39 1 2.56.12.17 1.76 2.67 4.25 3.73 1.75.75 2.27.82 2.74.73.46-.08 1.49-.61 1.7-1.2.21-.59.21-1.09.15-1.2-.07-.11-.25-.17-.52-.3-.27-.14-1.62-.8-1.87-.89-.25-.08-.43-.13-.62.13s-.71.89-.87 1.07c-.16.17-.32.2-.59.07-.27-.14-1.15-.42-2.19-1.35-1.21-1.07-1.81-2.1-2.08-2.53-.16-.26-.03-.4.12-.55.13-.13.27-.32.41-.48.14-.17.18-.28.27-.47.09-.17.05-.33-.02-.47-.07-.14-.61-1.46-.84-2.01-.22-.52-.44-.45-.62-.46h-.52z"/></svg>
     <span class="visually-hidden">Consultar por WhatsApp</span>
   </a>
+
+  <dialog class="lightbox" id="lightbox" aria-labelledby="lightbox-caption">
+    <div class="lightbox__inner">
+      <button type="button" class="lightbox__close" data-lightbox-close aria-label="Cerrar">&times;</button>
+      <figure>
+        <div class="lightbox__stage">
+          <img id="lightbox-image" alt="">
+        </div>
+        <figcaption id="lightbox-caption"></figcaption>
+      </figure>
+      <button type="button" class="lightbox__nav lightbox__prev" data-lightbox-prev aria-label="Foto anterior">‹</button>
+      <button type="button" class="lightbox__nav lightbox__next" data-lightbox-next aria-label="Foto siguiente">›</button>
+    </div>
+  </dialog>
 
   <script src="js/config.js"></script>
   <script src="js/main.js"></script>

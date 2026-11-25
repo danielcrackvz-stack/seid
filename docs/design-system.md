@@ -38,7 +38,7 @@ Muestreo del arte oficial (mediana de los píxeles del logo, 24 nov 2026). Entre
 
 WhatsApp no tiñe la interfaz. El CTA dice «WhatsApp», pero el botón es azul de marca (o tinta sobre la sección invertida). No usar el verde `#25D366` en botones, fondos ni el botón flotante.
 
-No hay degradados de marca, blobs, glassmorphism ni paletas arcoíris. Los neutros pueden tener un matiz frío mínimo; no introducir un segundo acento (teal, ámbar, etc.).
+No hay degradados decorativos de marca, blobs, glassmorphism ni paletas arcoíris. La única excepción es un velo (scrim) de `--blue` o tinta sobre una fotografía, para que el texto siga siendo legible; no es un degradado de adorno. Los neutros pueden tener un matiz frío mínimo; no introducir un segundo acento (teal, ámbar, etc.).
 
 Contraste mínimo: cuerpo 4.5:1, texto grande 3:1, controles y foco 3:1 (WCAG AA).
 
@@ -111,6 +111,17 @@ Iconos solo cuando aclaran una acción (por ejemplo, el glifo de WhatsApp junto 
 - Favicon: `landing/favicon.svg` — campo `--blue`, rayo `--bolt` simplificado, legible a 16 px.
 - Apple touch: `landing/apple-touch-icon.png` (180×180), misma lógica.
 - Open Graph: `landing/og-image.png` (1200×630), fondo papel o azul, logo oficial, una línea de oferta, sin fotomontajes ni stock.
+
+
+## Fotografía
+
+Las fotos de la landing salen del catálogo de WhatsApp Business (trabajos reales). No se usa stock ni ilustraciones genéricas.
+
+- Recortar el área de la foto (sin cromo de WhatsApp, flechas del carrusel ni textos de precio).
+- Si la resolución es baja (capturas de ~500–600 px), no ampliar de forma agresiva. Usar las fotos a un tamaño cercano al nativo: velo azul `#014397` en el hero a sangre, tarjetas de galería relativamente compactas, `object-fit: cover`.
+- Plomería e instalación de gas no tienen fotos en el catálogo: se presentan solo con tipografía, nunca con stock.
+- La galería «Trabajos realizados» usa los nombres oficiales de los ítems. No se publican precios (el de instalación de aires del catálogo, Bs 95, es un error; si en algún momento se publicara, sería «desde Bs 700»). El ítem 2 se llama «Colocación de panel trifásico».
+- Formato de entrega: WebP con respaldo JPG, `loading="lazy"` salvo el hero (`fetchpriority="high"`).
 
 ## Cómo reutilizar esto en la app
 

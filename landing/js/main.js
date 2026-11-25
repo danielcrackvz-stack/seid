@@ -1,4 +1,4 @@
-/* SEID — interacciones de la landing (menú, WhatsApp, formulario) */
+/* SEID — interacciones de la landing (menú, cabecera, WhatsApp, formulario, visor) */
 
 (function () {
   'use strict';
@@ -35,7 +35,8 @@
     var links = document.querySelectorAll('[data-wa]');
     for (var i = 0; i < links.length; i++) {
       var key = links[i].getAttribute('data-wa') || 'general';
-      var message = MESSAGES[key] || MESSAGES.general;
+      var custom = links[i].getAttribute('data-wa-text');
+      var message = custom || MESSAGES[key] || MESSAGES.general;
       links[i].setAttribute('href', whatsappUrl(message));
     }
     var catalog = typeof WHATSAPP_CATALOG !== 'undefined'
@@ -180,10 +181,95 @@
     }
   }
 
+
+  function setupHeader() {
+    var header = document.getElementById('site-header');
+    if (!header || !document.body.classList.contains('has-hero')) return;
+
+    function update() {
+      var solid = window.scrollY > 24;
+      document.body.classList.toggle('header-solid', solid);
+    }
+
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  }
+
+  function setupLightbox() {
+    var dialog = document.getElementById('lightbox');
+    if (!dialog || typeof dialog.showModal !== 'function') return;
+
+    var img = document.getElementById('lightbox-image');
+    var caption = document.getElementById('lightbox-caption');
+    var prev = dialog.querySelector('[data-lightbox-prev]');
+    var next = dialog.querySelector('[data-lightbox-next]');
+    var state = { items: [], index: 0 };
+
+    function render() {
+      var item = state.items[state.index];
+      if (!item) return;
+      var webp = item.webp;
+      // Prefer the jpg (or webp via currentSrc swap): use jpg for simplicity, browser caches both
+      img.src = item.jpg || item.webp;
+      img.alt = item.alt || '';
+      img.width = item.w || 0;
+      img.height = item.h || 0;
+      caption.textContent = state.title || '';
+      var many = state.items.length > 1;
+      dialog.classList.toggle('is-single', !many);
+      if (prev) prev.hidden = !many;
+      if (next) next.hidden = !many;
+    }
+
+    function openFrom(button) {
+      var raw = button.getAttribute('data-lightbox');
+      if (!raw) return;
+      var data;
+      try { data = JSON.parse(raw); } catch (err) { return; }
+      state.title = data.title || '';
+      state.items = data.images || [];
+      state.index = 0;
+      render();
+      if (!dialog.open) dialog.showModal();
+    }
+
+    function step(delta) {
+      if (state.items.length < 2) return;
+      state.index = (state.index + delta + state.items.length) % state.items.length;
+      render();
+    }
+
+    document.addEventListener('click', function (event) {
+      var btn = event.target.closest('[data-lightbox]');
+      if (btn) {
+        event.preventDefault();
+        openFrom(btn);
+      }
+    });
+
+    if (prev) prev.addEventListener('click', function () { step(-1); });
+    if (next) next.addEventListener('click', function () { step(1); });
+
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog || event.target.hasAttribute('data-lightbox-close')) {
+        dialog.close();
+      }
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (!dialog.open) return;
+      if (event.key === 'ArrowLeft') step(-1);
+      if (event.key === 'ArrowRight') step(1);
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     bindWhatsAppLinks();
     setupMenu();
+    setupHeader();
     setupQuoteForm();
+    setupLightbox();
     revealPlaceholders();
   });
+
 })();
