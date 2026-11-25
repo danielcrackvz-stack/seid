@@ -1,6 +1,6 @@
 # SEID — sistema de diseño
 
-Documento de tokens y reglas para la landing pública y la aplicación de administración. Última actualización: 24 de noviembre de 2026 (America/La_Paz).
+Documento de tokens y reglas para la landing pública y la aplicación de administración. Última actualización: 25 de noviembre de 2026 (America/La_Paz).
 
 Fuentes de criterio: brief del Ing. Abel Galarza y de Daniel; logo oficial de SEID; principios de Impeccable (mode Persuade, craft floor, typeset, layout, animate), Emil Kowalski (animación con propósito, ease-out, duraciones cortas) y Taste Skill (una paleta, tipografía con jerarquía, sin tropes genéricos de IA).
 
@@ -15,7 +15,7 @@ Fuentes de criterio: brief del Ing. Abel Galarza y de Daniel; logo oficial de SE
 - **WhatsApp Business:** `59173643342` (formato internacional, solo dígitos). En código: `WHATSAPP_NUMBER` en `landing/js/config.js`.
 - **Catálogo de WhatsApp:** https://wa.me/c/59173643342 — enlace de interfaz: «Ver catálogo».
 
-Datos que aún no se publican (no inventarlos): correo, dirección de oficina, NIT.
+En la landing no se publican correo, dirección de oficina ni NIT. El contacto público es únicamente WhatsApp (`59173643342`) y el catálogo (https://wa.me/c/59173643342).
 
 ## Color
 
