@@ -1,4 +1,4 @@
-name: Deploy landing to GitHub Pages
+name: Deploy SEID site to GitHub Pages
 
 on:
   push:
@@ -23,12 +23,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          set -eu
+          rm -rf _site
+          mkdir -p _site/app
+          cp -a landing/. _site/
+          cp -a app/demo/. _site/app/
+          touch _site/.nojekyll
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: landing
+          path: _site
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
