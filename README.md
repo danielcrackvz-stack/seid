@@ -1,12 +1,12 @@
 # SEID — Servicios de climatización, electricidad, plomería y gas
 
-Proyecto para la empresa **SEID** del Ing. Abel Galarza (Santa Cruz, Bolivia).
+Proyecto para la empresa **SEID** (Electricidad Industrial Domiciliaria SEID SRL) del Ing. Abel Galarza, en Santa Cruz de la Sierra, Bolivia.
 
 ## Estructura
 
-- `landing/` — Landing page pública (demo en GitHub Pages; producción prevista en Cloudflare Pages).
-- `app/` — Panel administrativo (PWA instalable) con Cloudflare Workers + D1.
-- `docs/` — Análisis de viabilidad, costos y documentación.
+- `landing/` — Sitio público (demo en GitHub Pages; producción prevista en Cloudflare Pages, con dominio propio).
+- `app/demo/` — Demostración del panel de trabajo (PWA instalable). Datos de ejemplo solo en el navegador. El inicio de sesión está simulado y **no guarda la contraseña**.
+- `docs/` — Análisis de viabilidad y costos, sistema de diseño, auditoría, seguridad y guía para comprar el dominio.
 
 ## Fases
 
@@ -17,27 +17,22 @@ Proyecto para la empresa **SEID** del Ing. Abel Galarza (Santa Cruz, Bolivia).
 
 ## Demos
 
-- Landing (fase 1): [https://danielcrackvz-stack.github.io/seid/](https://danielcrackvz-stack.github.io/seid/)
-- Panel de trabajo / app admin (demo, fase 2): [https://danielcrackvz-stack.github.io/seid/app/](https://danielcrackvz-stack.github.io/seid/app/)
+- Landing: [https://danielcrackvz-stack.github.io/seid/](https://danielcrackvz-stack.github.io/seid/)
+- Panel de trabajo (demo): [https://danielcrackvz-stack.github.io/seid/app/](https://danielcrackvz-stack.github.io/seid/app/)
 
-El código de la demo del panel está en `app/demo/` (HTML, CSS y JS estáticos, sin backend). Los datos de ejemplo se guardan en el navegador. El inicio de sesión está simulado.
+El sitio se publica con GitHub Actions (`.github/workflows/pages.yml`): el contenido de `landing/` queda en la raíz y `app/demo/` en `/app/`.
 
-## Demo de la landing (fase 1)
+## Contacto publicado
 
-- URL: [https://danielcrackvz-stack.github.io/seid/](https://danielcrackvz-stack.github.io/seid/)
-- El sitio es estático (HTML, CSS y JS, sin paso de compilación).
-- Para verlo en local, abra `landing/index.html` en el navegador o sirva la carpeta `landing/`.
+El único canal de contacto en el sitio es el WhatsApp Business **+591 736 43342**. El número se configura en `landing/js/config.js`. En el sitio no se publica correo, dirección de oficina ni NIT.
 
-### Número de WhatsApp
+## Páginas legales y seguridad
 
-Antes de mostrarle la demo al Ing. Galarza, reemplace el marcador en una sola línea:
+- [Términos y condiciones](https://danielcrackvz-stack.github.io/seid/terminos.html)
+- [Política de privacidad](https://danielcrackvz-stack.github.io/seid/privacidad.html)
 
-`landing/js/config.js`
+La tipografía va autohospedada (no se usan cookies ni analítica). Detalles de cabeceras recomendadas para cuando exista dominio propio: `docs/seguridad.md`. Guía para comprar el dominio: `docs/comprar-dominio.md`. Auditoría del 25 de noviembre de 2026: `docs/auditoria-2026-11.md`.
 
-```js
-const WHATSAPP_NUMBER = '591XXXXXXXX';
-```
+## Cómo verlo en local
 
-Use el formato internacional, solo dígitos, sin `+` ni espacios. Ejemplo Bolivia: `5917XXXXXXX`.
-
-También faltan, si se desea publicarlos: logo oficial, correo, dirección y NIT.
+Sirva la carpeta `landing/` (o arme el mismo `_site` que el flujo de Actions) y abra `index.html`.

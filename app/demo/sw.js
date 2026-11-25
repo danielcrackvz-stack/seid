@@ -1,5 +1,5 @@
 /* Service worker de la demo SEID. Cachea la app para poder instalarla en el teléfono. */
-const CACHE = 'seid-demo-v2';
+const CACHE = 'seid-demo-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './img/logo.png',
   './img/logo-header.png',
   './js/config.js',
+  './js/vendor/jspdf.umd.min.js',
   './fonts/instrument-sans.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -39,7 +40,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) {
-    // jsPDF u otros CDN: red primero, cache si responde
+    // Pedidos a otro origen (no debería haberlos en esta demo): red primero
     event.respondWith(
       fetch(req).then((res) => {
         const copy = res.clone();

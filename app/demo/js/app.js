@@ -189,15 +189,15 @@ function viewLogin() {
     <div class="login-panel">
       <h1>Entrar al panel</h1>
       <p class="muted" style="margin-top:0">Para el Ing. Abel Galarza.</p>
-      <p class="note">Esta es una <strong>demostración</strong>. El inicio de sesión está simulado: puede entrar con cualquier nombre y cualquier contraseña. En la versión real sí se verificará su acceso.</p>
+      <p class="note">Esta es una <strong>demostración</strong>. El inicio de sesión está simulado: puede entrar con cualquier nombre y cualquier contraseña. La contraseña <strong>no se guarda</strong> en el navegador ni en un servidor. Los datos de ejemplo quedan solo en este dispositivo (almacenamiento local) y no se envían a SEID. En la versión real sí se verificará su acceso.</p>
       <form id="login-form">
         <div class="field">
           <label for="login-nombre">Su nombre</label>
           <input id="login-nombre" name="nombre" autocomplete="name" value="${esc(remembered)}" required>
         </div>
         <div class="field">
-          <label for="login-clave">Contraseña</label>
-          <input id="login-clave" name="clave" type="password" autocomplete="current-password" placeholder="Cualquier texto, en la demo">
+          <label for="login-clave">Contraseña (no se guarda)</label>
+          <input id="login-clave" name="clave" type="password" autocomplete="off" placeholder="Cualquier texto; no se almacena">
         </div>
         <button class="btn btn--block" type="submit">Entrar al panel</button>
       </form>
@@ -997,7 +997,7 @@ async function withPdfReady() {
   if (window.jspdf && window.jspdf.jsPDF) return;
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.src = new URL('./vendor/jspdf.umd.min.js', import.meta.url).href;
     s.onload = resolve;
     s.onerror = () => reject(new Error('No se pudo cargar jsPDF'));
     document.head.appendChild(s);

@@ -38,6 +38,8 @@
       var custom = links[i].getAttribute('data-wa-text');
       var message = custom || MESSAGES[key] || MESSAGES.general;
       links[i].setAttribute('href', whatsappUrl(message));
+      links[i].setAttribute('target', '_blank');
+      links[i].setAttribute('rel', 'noopener noreferrer');
     }
     var catalog = typeof WHATSAPP_CATALOG !== 'undefined'
       ? WHATSAPP_CATALOG
@@ -45,6 +47,8 @@
     var catLinks = document.querySelectorAll('[data-catalog]');
     for (var j = 0; j < catLinks.length; j++) {
       catLinks[j].setAttribute('href', catalog);
+      catLinks[j].setAttribute('target', '_blank');
+      catLinks[j].setAttribute('rel', 'noopener noreferrer');
     }
   }
 

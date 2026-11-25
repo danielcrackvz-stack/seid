@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
 
+# La demo del panel no es el sitio público de la empresa.
+Disallow: /app/
+Disallow: /seid/app/
+
 Sitemap: https://danielcrackvz-stack.github.io/seid/sitemap.xml

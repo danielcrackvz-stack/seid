@@ -2,8 +2,9 @@
 
 @font-face {
   font-family: "Instrument Sans";
-  src: url("../fonts/instrument-sans.woff") format("woff");
-  font-weight: 100 900;
+  src: url("../fonts/instrument-sans.woff2") format("woff2"),
+       url("../fonts/instrument-sans.woff") format("woff");
+  font-weight: 400 700;
   font-style: normal;
   font-display: swap;
 }
@@ -890,3 +891,64 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
   .site-header, .wa-float, .menu-toggle, .hero__actions { display: none !important; }
   body { background: #fff; color: #000; }
 }
+
+
+/* Utility replacements for former inline styles */
+
+.img-pos-top { object-position: center 18%; }
+.section-cta { margin: 1.25rem 0 0; }
+.optional { font-weight: 500; color: var(--ink-soft); }
+.footer-copy { margin-top: 1.5rem; }
+.footer-legal { margin-top: 1.1rem; }
+
+/* Legal pages (términos, privacidad) */
+
+.legal .legal__wrap {
+  width: min(100% - 2.5rem, 42rem);
+  margin-inline: auto;
+}
+.legal h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 575;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.legal__date {
+  margin: 0 0 2.25rem;
+  color: var(--ink-soft);
+}
+.legal h2 {
+  margin: 2.25rem 0 0.7rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+.legal p { margin: 0 0 0.9rem; }
+.legal ul,
+.legal ol {
+  margin: 0 0 0.9rem;
+  padding-left: 1.2rem;
+}
+.legal li { margin: 0 0 0.4rem; }
+.legal li:last-child { margin-bottom: 0; }
+
+/* Styled 404 */
+
+.page-error {
+  min-height: 100vh;
+  display: grid;
+  align-content: center;
+  padding: var(--space) 0;
+}
+.page-error .wrap { max-width: 36rem; }
+.page-error h1 {
+  letter-spacing: -0.03em;
+  margin: 0 0 0.75rem;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 575;
+  line-height: 1.1;
+}
+.page-error .page-error__actions { margin-top: 1.5rem; }
