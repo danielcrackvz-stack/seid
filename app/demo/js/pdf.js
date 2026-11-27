@@ -1,405 +1,382 @@
-/* Generación de PDF (jsPDF por CDN) y compartido por WhatsApp / Web Share. */
-import { WHATSAPP_NUMBER } from './config.js';
+/* Informe PDF de trabajos y mantenimientos (jsPDF local, sin CDN). */
+import { WHATSAPP_NUMBER, TECNICO_NOMBRE } from './config.js';
+import { CHECKLIST_AIRE, estadoLabel } from './catalog.js';
+import * as fmt from './format.js';
 
-const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const BLUE = [1, 67, 151];
+const INK = [20, 24, 31];
+const MUTED = [98, 106, 118];
+const LINE = [222, 224, 228];
+const SOFT = [248, 247, 244];
+const M = 16; // margen
+const W = 210;
+const H = 297;
 
-export function formatFecha(iso, withWeekday = false) {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const base = `${d} de ${MESES[m - 1]} de ${y}`;
-  if (!withWeekday) return base;
-  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-  return `${dias[dt.getDay()]}, ${base}`;
-}
+let logoCache = null;
 
-export function formatBs(n) {
-  const num = Number(n) || 0;
-  const parts = num.toFixed(2).split('.');
-  const int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  if (parts[1] === '00') return `Bs ${int}`;
-  return `Bs ${int},${parts[1]}`;
-}
-
-export function formatPhone(num) {
-  const d = String(num || '').replace(/\D/g, '');
-  if (d.startsWith('591') && d.length >= 11) return `+591 ${d.slice(3, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
-  return num || '—';
-}
-
-function mustJsPdf() {
-  const JSPDF = window.jspdf && window.jspdf.jsPDF;
-  if (!JSPDF) throw new Error('No se pudo cargar la librería para generar PDF.');
-  return JSPDF;
-}
-
-let logoDataUrl = null;
-let currentLogo = null;
-
-async function getLogoDataUrl() {
-  if (logoDataUrl) return logoDataUrl;
-  const res = await fetch(new URL('../img/logo.png', import.meta.url));
+async function dataUrlOf(path) {
+  const res = await fetch(new URL(path, import.meta.url));
   if (!res.ok) return null;
   const blob = await res.blob();
-  logoDataUrl = await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
   });
-  return logoDataUrl;
 }
 
-function header(doc, title, subtitle) {
-  const w = doc.internal.pageSize.getWidth();
-  doc.setFillColor(255, 255, 255);
-  doc.rect(0, 0, w, 26, 'F');
-  if (currentLogo) {
-    try {
-      const lh = 17;
-      const lw = lh * (559 / 210);
-      doc.addImage(currentLogo, 'PNG', 14, 5, lw, lh);
-    } catch {
-      /* if the image cannot be embedded, the title still identifies the company */
+function imgSize(src) {
+  return new Promise((resolve) => {
+    const i = new Image();
+    i.onload = () => resolve({ w: i.naturalWidth, h: i.naturalHeight });
+    i.onerror = () => resolve({ w: 4, h: 3 });
+    i.src = src;
+  });
+}
+
+/** Helvetica de jsPDF solo tiene WinAnsi: se reemplazan caracteres que no existen. */
+function t(s) {
+  return String(s ?? '')
+    .replace(/[−‒]/g, '-')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/…/g, '...')
+    .replace(/[^\u0000-\u00FF–—•€]/g, '');
+}
+
+function JsPDF() {
+  const J = window.jspdf && window.jspdf.jsPDF;
+  if (!J) throw new Error('No se pudo cargar el generador de PDF. Vuelva a abrir la app.');
+  return J;
+}
+
+class Doc {
+  constructor(titulo, numero) {
+    const J = JsPDF();
+    this.doc = new J({ unit: 'mm', format: 'a4', compress: true });
+    this.titulo = titulo;
+    this.numero = numero;
+    this.y = 0;
+    this.header(true);
+  }
+
+  header(first) {
+    const d = this.doc;
+    if (logoCache) {
+      const lh = first ? 15 : 10;
+      try { d.addImage(logoCache.src, 'PNG', M, 10, lh * logoCache.ratio, lh); } catch { /* */ }
+    }
+    d.setFont('helvetica', 'bold');
+    d.setFontSize(first ? 12.5 : 10);
+    d.setTextColor(...INK);
+    d.text(t(this.titulo), W - M, 15, { align: 'right' });
+    d.setFont('helvetica', 'normal');
+    d.setFontSize(9);
+    d.setTextColor(...BLUE);
+    d.text(t(`N.º ${this.numero}`), W - M, 20.5, { align: 'right' });
+    d.setTextColor(...MUTED);
+    d.setFontSize(8);
+    d.text(t(`${TECNICO_NOMBRE} · Santa Cruz, Bolivia`), W - M, 25, { align: 'right' });
+    d.setDrawColor(...LINE);
+    d.setLineWidth(0.3);
+    d.line(M, 30, W - M, 30);
+    this.y = 38;
+  }
+
+  ensure(need) {
+    if (this.y + need > H - 22) {
+      this.doc.addPage();
+      this.header(false);
     }
   }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(1, 67, 151);
-  doc.text(title, w - 14, 11.5, { align: 'right' });
-  if (subtitle) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(90, 98, 110);
-    doc.text(subtitle, w - 14, 16.8, { align: 'right' });
+
+  section(label) {
+    this.ensure(16);
+    const d = this.doc;
+    d.setFont('helvetica', 'bold');
+    d.setFontSize(8.2);
+    d.setTextColor(...BLUE);
+    d.setCharSpace(0.35);
+    d.text(t(label.toUpperCase()), M, this.y);
+    d.setCharSpace(0);
+    this.y += 5.5;
   }
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(90, 98, 110);
-  doc.text('Ing. Abel Galarza  ·  Santa Cruz, Bolivia', w - 14, 21.8, { align: 'right' });
-  doc.setFillColor(216, 220, 226);
-  doc.rect(0, 26, w, 0.4, 'F');
-}
 
-function footer(doc) {
-  const w = doc.internal.pageSize.getWidth();
-  const h = doc.internal.pageSize.getHeight();
-  const pages = doc.getNumberOfPages();
-  for (let i = 1; i <= pages; i++) {
-    doc.setPage(i);
-    doc.setFillColor(247, 248, 250);
-    doc.rect(0, h - 14, w, 14, 'F');
-    doc.setFillColor(1, 67, 151);
-    doc.rect(0, h - 14, w, 0.4, 'F');
-    doc.setFontSize(7.2);
-    doc.setTextColor(90, 98, 110);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`WhatsApp ${formatPhone(WHATSAPP_NUMBER)}  ·  DEMO · datos de ejemplo`, 14, h - 6);
-    doc.text(`Página ${i} de ${pages}`, w - 14, h - 6, { align: 'right' });
-  }
-}
-
-function ensureSpace(doc, y, need = 24) {
-  const h = doc.internal.pageSize.getHeight();
-  if (y + need > h - 20) {
-    doc.addPage();
-    header(doc, 'Informe de mantenimiento', 'Continuación');
-    return 34;
-  }
-  return y;
-}
-
-function sectionTitle(doc, y, text) {
-  y = ensureSpace(doc, y, 14);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(1, 67, 151);
-  doc.text(text.toUpperCase(), 14, y);
-  doc.setDrawColor(1, 67, 151);
-  doc.setLineWidth(0.4);
-  doc.line(14, y + 1.6, 80, y + 1.6);
-  return y + 8;
-}
-
-function kv(doc, y, pairs) {
-  const w = doc.internal.pageSize.getWidth();
-  const col = (w - 28) / 2;
-  doc.setFontSize(9);
-  for (let i = 0; i < pairs.length; i += 2) {
-    y = ensureSpace(doc, y, 10);
-    const left = pairs[i];
-    const right = pairs[i + 1];
-    if (left) {
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(91, 110, 126);
-      doc.text(left[0], 14, y);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(18, 32, 46);
-      doc.text(String(left[1] ?? '—'), 14, y + 4.4);
+  /** Pares etiqueta/valor en dos columnas. */
+  grid(pairs) {
+    const d = this.doc;
+    const colW = (W - 2 * M) / 2;
+    const rows = [];
+    for (let i = 0; i < pairs.length; i += 2) rows.push([pairs[i], pairs[i + 1]]);
+    for (const row of rows) {
+      const heights = row.map((p) => (p ? d.splitTextToSize(t(p[1] ?? '—'), colW - 6).length : 0));
+      const h = 5 + Math.max(...heights, 1) * 4.6;
+      this.ensure(h);
+      row.forEach((p, idx) => {
+        if (!p) return;
+        const x = M + idx * colW;
+        d.setFont('helvetica', 'normal');
+        d.setFontSize(7.8);
+        d.setTextColor(...MUTED);
+        d.text(t(p[0]), x, this.y);
+        d.setFont('helvetica', 'bold');
+        d.setFontSize(9.6);
+        d.setTextColor(...INK);
+        d.text(d.splitTextToSize(t(p[1] ?? '—'), colW - 6), x, this.y + 4.6);
+      });
+      this.y += h + 1.5;
     }
-    if (right) {
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(91, 110, 126);
-      doc.text(right[0], 14 + col, y);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(18, 32, 46);
-      doc.text(String(right[1] ?? '—'), 14 + col, y + 4.4);
-    }
-    y += 11;
+    this.y += 2;
   }
-  return y;
+
+  paragraph(text, { size = 9.6, color = INK, gap = 4 } = {}) {
+    const d = this.doc;
+    d.setFont('helvetica', 'normal');
+    d.setFontSize(size);
+    d.setTextColor(...color);
+    const lines = d.splitTextToSize(t(text || '—'), W - 2 * M);
+    for (const line of lines) {
+      this.ensure(5);
+      d.text(line, M, this.y);
+      this.y += 4.7;
+    }
+    this.y += gap;
+  }
+
+  rule() {
+    this.doc.setDrawColor(...LINE);
+    this.doc.setLineWidth(0.25);
+    this.doc.line(M, this.y, W - M, this.y);
+  }
+
+  footer() {
+    const d = this.doc;
+    const n = d.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      d.setPage(i);
+      d.setDrawColor(...LINE);
+      d.setLineWidth(0.3);
+      d.line(M, H - 15, W - M, H - 15);
+      d.setFont('helvetica', 'normal');
+      d.setFontSize(7.8);
+      d.setTextColor(...MUTED);
+      d.text(t(`SEID · Servicios de Electricidad Industrial y Domiciliaria · WhatsApp ${fmt.telefono(WHATSAPP_NUMBER)}`), M, H - 9.5);
+      d.text(`Página ${i} de ${n}`, W - M, H - 9.5, { align: 'right' });
+    }
+  }
 }
 
-function wrapped(doc, text, x, y, maxW, lineH = 4.4) {
-  const lines = doc.splitTextToSize(String(text || '—'), maxW);
-  doc.text(lines, x, y);
-  return y + lines.length * lineH;
-}
+/**
+ * Genera el PDF de un registro.
+ * @param {object} r registro
+ * @param {object[]} eventos bitácora del registro
+ * @param {{total:number|null, ajustes:number}} tot
+ */
+export async function generarPdf(r, eventos, tot) {
+  if (!logoCache) {
+    const src = await dataUrlOf('../img/logo.png');
+    if (src) logoCache = { src, ratio: 559 / 210 };
+  }
+  const esMant = r.tipo === 'mantenimiento';
+  const p = new Doc(esMant ? 'Informe de mantenimiento' : 'Informe de trabajo', r.numero);
+  const d = p.doc;
 
-export async function generateMaintenancePdf(mant, client) {
-  currentLogo = await getLogoDataUrl();
-  const JsPDF = mustJsPdf();
-  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
-  const tipo = mant.tipo === 'correctivo' ? 'Correctivo' : 'Preventivo';
-  header(doc, 'Informe de mantenimiento', `${mant.ot || ''}  ·  ${tipo}`);
+  // Banda principal
+  d.setFillColor(...SOFT);
+  d.roundedRect(M, p.y - 5, W - 2 * M, 17, 2, 2, 'F');
+  d.setFont('helvetica', 'bold');
+  d.setFontSize(13);
+  d.setTextColor(...INK);
+  d.text(t(r.servicioLabel), M + 5, p.y + 2.2);
+  d.setFont('helvetica', 'normal');
+  d.setFontSize(8.6);
+  d.setTextColor(...MUTED);
+  d.text(t(`Estado: ${estadoLabel(r.estado)}${r.bloqueado ? ' · Firmado y cerrado' : ''}`), M + 5, p.y + 7.4);
+  if (tot.total != null) {
+    d.setFont('helvetica', 'bold');
+    d.setFontSize(13);
+    d.setTextColor(...BLUE);
+    d.text(t(fmt.bs(tot.total)), W - M - 5, p.y + 2.2, { align: 'right' });
+    d.setFont('helvetica', 'normal');
+    d.setFontSize(7.8);
+    d.setTextColor(...MUTED);
+    d.text('Total', W - M - 5, p.y + 7.4, { align: 'right' });
+  }
+  p.y += 21;
 
-  let y = 34;
-  doc.setFillColor(232, 238, 248);
-  doc.roundedRect(14, y - 4, 182, 8, 1.5, 1.5, 'F');
-  doc.setFontSize(8);
-  doc.setTextColor(1, 67, 151);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DEMO · DATOS DE EJEMPLO', 18, y + 1.2);
-  y += 12;
-
-  y = sectionTitle(doc, y, 'Datos generales');
-  y = kv(doc, y, [
-    ['Fecha', formatFecha(mant.fecha, true)],
-    ['Orden de trabajo', mant.ot || '—'],
-    ['Tipo', tipo],
-    ['Próximo mantenimiento', formatFecha(mant.proximoMantenimiento, true)],
-    ['Técnico', mant.tecnico || '—'],
-    ['Auxiliar', mant.auxiliar || '—']
+  p.section('Cliente');
+  p.grid([
+    ['Nombre', r.cliente?.nombre],
+    ['WhatsApp', r.cliente?.telefono ? fmt.telefono(r.cliente.telefono) : '—'],
+    ...(r.ubicacion ? [['Ubicación / referencia', r.ubicacion], null] : [])
   ]);
 
-  y = sectionTitle(doc, y, 'Cliente y ubicación');
-  y = kv(doc, y, [
-    ['Cliente', client ? client.nombre : '—'],
-    ['Teléfono', client ? formatPhone(client.telefono) : '—'],
-    ['Zona', client ? client.zona : '—'],
-    ['Ubicación del trabajo', mant.ubicacion || (client && client.direccion) || '—']
+  p.section('Fechas y tiempos');
+  p.grid([
+    ['Fecha de inicio', fmt.fecha(r.fechaInicio)],
+    ['Fecha de cierre', r.cierre ? fmt.fecha(r.cierre.fechaFin) : 'Sin cerrar'],
+    ['Tiempo estimado', fmt.tiempo(r.tiempoEstimado)],
+    ['Tiempo real', r.cierre ? fmt.tiempo(r.cierre.tiempoReal) : '—']
   ]);
 
-  const eq = mant.equipo || {};
-  y = sectionTitle(doc, y, 'Equipo');
-  y = kv(doc, y, [
-    ['Tipo', eq.tipo || '—'],
-    ['Marca', eq.marca || '—'],
-    ['Modelo', eq.modelo || '—'],
-    ['Serie', eq.serie || '—'],
-    ['Capacidad', eq.capacidadBTU ? `${eq.capacidadBTU} BTU` : '—'],
-    ['Refrigerante', eq.refrigerante || '—']
-  ]);
-  if (eq.ubicacion) {
-    y = kv(doc, y, [['Ubicación del equipo', eq.ubicacion], null]);
+  if (r.equipo && (r.equipo.tipo || r.equipo.capacidad || r.equipo.marca)) {
+    p.section('Equipo');
+    p.grid([
+      ['Tipo', r.equipo.tipo || '—'],
+      ['Capacidad', r.equipo.capacidad || '—'],
+      ['Marca / modelo', [r.equipo.marca, r.equipo.modelo].filter(Boolean).join(' ') || '—'],
+      ['Ubicación del equipo', r.equipo.ubicacion || '—']
+    ]);
   }
 
-  y = sectionTitle(doc, y, 'Lista de verificación');
-  const items = (window.SEID_CHECKLIST || []).length
-    ? window.SEID_CHECKLIST
-    : (await import('./data.js')).CHECKLIST;
-  doc.setFontSize(9);
-  for (const item of items) {
-    y = ensureSpace(doc, y, 7);
-    const on = !!(mant.checklist && mant.checklist[item.key]);
-    doc.setDrawColor(12, 31, 51);
-    doc.setLineWidth(0.3);
-    doc.rect(14, y - 3.2, 3.6, 3.6);
-    if (on) {
-      doc.setFillColor(1, 67, 151);
-      doc.rect(14, y - 3.2, 3.6, 3.6, 'F');
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.55);
-      doc.line(14.7, y - 1.3, 15.5, y - 0.2);
-      doc.line(15.5, y - 0.2, 17.2, y - 2.6);
+  if (r.checklist) {
+    p.section('Servicio realizado');
+    const colW = (W - 2 * M) / 2;
+    CHECKLIST_AIRE.forEach((item, i) => {
+      if (i % 2 === 0) p.ensure(7);
+      const x = M + (i % 2) * colW;
+      const on = !!r.checklist[item.key];
+      d.setLineWidth(0.3);
+      if (on) {
+        d.setFillColor(...BLUE);
+        d.roundedRect(x, p.y - 3.3, 3.8, 3.8, 0.6, 0.6, 'F');
+        d.setDrawColor(255, 255, 255);
+        d.setLineWidth(0.5);
+        d.line(x + 0.8, p.y - 1.4, x + 1.6, p.y - 0.5);
+        d.line(x + 1.6, p.y - 0.5, x + 3.1, p.y - 2.5);
+      } else {
+        d.setDrawColor(...MUTED);
+        d.roundedRect(x, p.y - 3.3, 3.8, 3.8, 0.6, 0.6, 'S');
+      }
+      d.setFont('helvetica', 'normal');
+      d.setFontSize(9.2);
+      d.setTextColor(...(on ? INK : MUTED));
+      d.text(t(item.label + (on ? '' : ' (no realizado)')), x + 6, p.y);
+      if (i % 2 === 1 || i === CHECKLIST_AIRE.length - 1) p.y += 6.4;
+    });
+    p.y += 3;
+  }
+
+  if (r.descripcion) {
+    p.section(esMant ? 'Observaciones' : 'Descripción del trabajo');
+    p.paragraph(r.descripcion);
+  }
+
+  // Detalle de precio
+  const ajustes = eventos.filter((e) => e.ajuste);
+  if (r.precio != null || r.precioDetalle?.length || ajustes.length) {
+    p.section('Detalle de precio');
+    const rows = [];
+    if (r.precioDetalle?.length) {
+      for (const it of r.precioDetalle) rows.push([it.label, it.monto]);
+      const suma = r.precioDetalle.reduce((s, it) => s + Number(it.monto || 0), 0);
+      if (r.precio != null && Math.round(suma) !== Math.round(r.precio)) rows.push(['Ajuste al precio acordado', r.precio - suma]);
+    } else if (r.precio != null) {
+      rows.push(['Precio acordado', r.precio]);
     }
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(18, 32, 46);
-    doc.text(item.label, 20, y);
-    doc.setTextColor(on ? 1 : 90, on ? 67 : 98, on ? 151 : 110);
-    doc.setFont('helvetica', 'bold');
-    doc.text(on ? 'Hecho' : 'No', 186, y, { align: 'right' });
-    y += 6.2;
-  }
-
-  y = sectionTitle(doc, y + 2, 'Parámetros');
-  const antes = mant.paramsAntes || {};
-  const despues = mant.paramsDespues || {};
-  y = kv(doc, y, [
-    ['Presión baja (antes)', antes.presionBaja ? `${antes.presionBaja} PSI` : '—'],
-    ['Presión baja (después)', despues.presionBaja ? `${despues.presionBaja} PSI` : '—'],
-    ['Presión alta (antes)', antes.presionAlta ? `${antes.presionAlta} PSI` : '—'],
-    ['Presión alta (después)', despues.presionAlta ? `${despues.presionAlta} PSI` : '—'],
-    ['Amperaje compresor (antes)', antes.amperaje ? `${antes.amperaje} A` : '—'],
-    ['Amperaje compresor (después)', despues.amperaje ? `${despues.amperaje} A` : '—'],
-    ['Voltaje (antes)', antes.voltaje ? `${antes.voltaje} V` : '—'],
-    ['Voltaje (después)', despues.voltaje ? `${despues.voltaje} V` : '—']
-  ]);
-
-  y = sectionTitle(doc, y, 'Observaciones');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(18, 32, 46);
-  y = wrapped(doc, mant.observaciones || 'Sin observaciones.', 14, y, 182);
-  y += 4;
-
-  if (mant.diagnostico && mant.diagnostico.length) {
-    y = sectionTitle(doc, y, 'Diagnóstico y recomendaciones para la próxima visita');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(18, 32, 46);
-    for (const rec of mant.diagnostico.filter(Boolean)) {
-      y = ensureSpace(doc, y, 8);
-      y = wrapped(doc, `•  ${rec}`, 14, y, 182);
-      y += 1.5;
+    for (const e of ajustes) rows.push([`${e.ajuste > 0 ? 'Costo adicional' : 'Descuento'} (nota del ${fmt.fechaHora(e.createdAt)})`, e.ajuste]);
+    for (const [label, monto] of rows) {
+      const lines = d.splitTextToSize(t(label), W - 2 * M - 40);
+      p.ensure(lines.length * 4.6 + 3);
+      d.setFont('helvetica', 'normal');
+      d.setFontSize(9.4);
+      d.setTextColor(...INK);
+      d.text(lines, M, p.y);
+      d.text(t(fmt.bs(monto)), W - M, p.y, { align: 'right' });
+      p.y += lines.length * 4.6 + 1.8;
     }
-    y += 2;
+    p.ensure(10);
+    p.rule();
+    p.y += 5.5;
+    d.setFont('helvetica', 'bold');
+    d.setFontSize(10.5);
+    d.text('Total', M, p.y);
+    d.setTextColor(...BLUE);
+    d.text(t(fmt.bs(tot.total)), W - M, p.y, { align: 'right' });
+    p.y += 9;
   }
 
-  const correctivos = (await import('./data.js')).CORRECTIVOS;
-  const doneCorr = correctivos.filter((c) => mant.trabajosCorrectivos && mant.trabajosCorrectivos[c.key]);
-  y = sectionTitle(doc, y, 'Trabajos correctivos');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(18, 32, 46);
-  if (doneCorr.length) {
-    y = wrapped(doc, doneCorr.map((c) => c.label).join(', '), 14, y, 182);
-  } else {
-    y = wrapped(doc, 'Ninguno registrado.', 14, y, 182);
-  }
-  y += 4;
-
-  y = sectionTitle(doc, y, 'Repuestos utilizados');
-  if (mant.repuestos && mant.repuestos.length) {
-    for (const r of mant.repuestos) {
-      y = ensureSpace(doc, y, 7);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(18, 32, 46);
-      doc.text(`${r.nombre || '—'}   ·   cant. ${r.cantidad || '—'}`, 14, y);
-      y += 6;
+  // Bitácora
+  const bitacora = eventos.filter((e) => e.tipo === 'nota' || e.tipo === 'estado');
+  if (bitacora.length) {
+    p.section('Notas e imprevistos');
+    for (const e of bitacora) {
+      const head = fmt.fechaHora(e.createdAt);
+      const body = e.tipo === 'estado'
+        ? `Estado: ${estadoLabel(e.estadoDe)} → ${estadoLabel(e.estadoA)}`.replace('→', '>')
+        : [e.texto, e.ajuste ? `Ajuste de costo: ${fmt.bs(e.ajuste)}` : ''].filter(Boolean).join('\n');
+      const lines = d.splitTextToSize(t(body), W - 2 * M - 6);
+      let photoH = 0;
+      let size = null;
+      if (e.foto) { size = await imgSize(e.foto); photoH = Math.min(48, 64 * size.h / size.w); }
+      p.ensure(8 + lines.length * 4.6 + (photoH ? photoH + 3 : 0));
+      d.setFillColor(...BLUE);
+      d.circle(M + 1.2, p.y - 1.2, 0.9, 'F');
+      d.setFont('helvetica', 'bold');
+      d.setFontSize(8.2);
+      d.setTextColor(...MUTED);
+      d.text(t(head), M + 5, p.y);
+      p.y += 4.6;
+      d.setFont('helvetica', 'normal');
+      d.setFontSize(9.4);
+      d.setTextColor(...INK);
+      d.text(lines, M + 5, p.y);
+      p.y += lines.length * 4.6;
+      if (e.foto) {
+        const w = photoH * size.w / size.h;
+        try { d.addImage(e.foto, 'JPEG', M + 5, p.y, w, photoH); } catch { /* */ }
+        p.y += photoH + 2;
+      }
+      p.y += 3;
     }
-  } else {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('Ninguno registrado.', 14, y);
-    y += 8;
+    p.y += 2;
   }
 
-  y = ensureSpace(doc, y, 50);
-  y = sectionTitle(doc, y, 'Firmas');
-  const sigW = 80;
-  const sigH = 28;
-  if (mant.firmaCliente) {
-    try { doc.addImage(mant.firmaCliente, 'PNG', 14, y, sigW, sigH); } catch { /* ignore */ }
-  } else {
-    doc.setDrawColor(200, 210, 218);
-    doc.rect(14, y, sigW, sigH);
-  }
-  if (mant.firmaTecnico) {
-    try { doc.addImage(mant.firmaTecnico, 'PNG', 112, y, sigW, sigH); } catch { /* ignore */ }
-  } else {
-    doc.setDrawColor(200, 210, 218);
-    doc.rect(112, y, sigW, sigH);
-  }
-  y += sigH + 5;
-  doc.setFontSize(8);
-  doc.setTextColor(91, 110, 126);
-  doc.text('Firma del cliente', 14, y);
-  doc.text('Firma del técnico', 112, y);
-
-  footer(doc);
-  const filename = `${(mant.ot || 'mantenimiento').replace(/\s+/g, '_')}_SEID_demo.pdf`;
-  return { doc, blob: doc.output('blob'), filename };
-}
-
-export async function generateQuotePdf(quote, client) {
-  currentLogo = await getLogoDataUrl();
-  const JsPDF = mustJsPdf();
-  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
-  header(doc, 'Cotización de aires', quote.numero || '');
-
-  let y = 34;
-  doc.setFillColor(232, 238, 248);
-  doc.roundedRect(14, y - 4, 182, 8, 1.5, 1.5, 'F');
-  doc.setFontSize(8);
-  doc.setTextColor(1, 67, 151);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DEMO · PRECIOS DE EJEMPLO  ·  No es una oferta formal', 18, y + 1.2);
-  y += 12;
-
-  y = sectionTitle(doc, y, 'Cliente');
-  y = kv(doc, y, [
-    ['Nombre', client ? client.nombre : quote.clienteNombre || '—'],
-    ['Fecha', formatFecha(quote.fecha, true)],
-    ['Zona', client ? client.zona : '—'],
-    ['Teléfono', client ? formatPhone(client.telefono) : '—']
-  ]);
-
-  y = sectionTitle(doc, y, 'Detalle');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(91, 110, 126);
-  doc.text('Ítem', 14, y);
-  doc.text('Importe', 196, y, { align: 'right' });
-  y += 6;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(18, 32, 46);
-  for (const item of quote.items) {
-    y = ensureSpace(doc, y, 10);
-    const name = doc.splitTextToSize(item.nombre, 150);
-    doc.text(name, 14, y);
-    doc.setFont('helvetica', 'bold');
-    doc.text(formatBs(item.precio), 196, y, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    y += Math.max(8, name.length * 4.4 + 2);
+  if (r.proximoMantenimiento) {
+    p.section('Próximo mantenimiento');
+    p.paragraph(`Se recomienda el próximo mantenimiento el ${fmt.fecha(r.proximoMantenimiento, { dia: true })}. Le avisaremos por WhatsApp.`);
   }
 
-  y = ensureSpace(doc, y, 36);
-  doc.setDrawColor(232, 238, 242);
-  doc.line(14, y, 196, y);
-  y += 8;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Subtotal proveedor`, 120, y);
-  doc.text(formatBs(quote.subtotal), 196, y, { align: 'right' });
-  y += 6;
-  doc.text(`Margen (${quote.margen} %)`, 120, y);
-  doc.text(formatBs(quote.margenMonto), 196, y, { align: 'right' });
-  y += 9;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(1, 49, 113);
-  doc.text('Total', 120, y);
-  doc.text(formatBs(quote.total), 196, y, { align: 'right' });
-  y += 12;
+  // Firmas
+  p.ensure(58);
+  p.section('Conformidad');
+  const boxW = (W - 2 * M - 10) / 2;
+  const sigs = [
+    ['Técnico', r.cierre?.firmaTecnico],
+    ['Cliente', r.cierre?.firmaCliente]
+  ];
+  const top = p.y;
+  for (let i = 0; i < 2; i++) {
+    const [rol, f] = sigs[i];
+    const x = M + i * (boxW + 10);
+    const boxH = 30;
+    if (f?.png) {
+      const s = await imgSize(f.png);
+      let h = boxH - 4;
+      let w = h * s.w / s.h;
+      if (w > boxW - 4) { w = boxW - 4; h = w * s.h / s.w; }
+      try { d.addImage(f.png, 'PNG', x + (boxW - w) / 2, top + (boxH - h) / 2, w, h); } catch { /* */ }
+    }
+    d.setDrawColor(...INK);
+    d.setLineWidth(0.3);
+    d.line(x, top + boxH + 1, x + boxW, top + boxH + 1);
+    d.setFont('helvetica', 'bold');
+    d.setFontSize(9.4);
+    d.setTextColor(...INK);
+    d.text(t(f?.nombre || (rol === 'Técnico' ? TECNICO_NOMBRE : r.cliente?.nombre || '')), x, top + boxH + 6);
+    d.setFont('helvetica', 'normal');
+    d.setFontSize(8);
+    d.setTextColor(...MUTED);
+    const extra = [rol, f?.ci ? `CI ${f.ci}` : '', f?.fecha ? fmt.fechaHora(f.fecha) : 'Sin firmar'].filter(Boolean).join(' · ');
+    d.text(t(extra), x, top + boxH + 10.5);
+  }
+  p.y = top + 48;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(91, 110, 126);
-  y = wrapped(
-    doc,
-    'Precios de demostración con lista de proveedor ficticia. En la versión real se cargarán los precios que entreguen las empresas proveedoras. Vigencia ilustrativa: 15 días. No incluye impuestos no detallados.',
-    14,
-    y,
-    182
-  );
-
-  footer(doc);
-  const filename = `${(quote.numero || 'cotizacion').replace(/\s+/g, '_')}_SEID_demo.pdf`;
-  return { doc, blob: doc.output('blob'), filename };
+  p.footer();
+  const nombre = (r.cliente?.nombre || 'cliente').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const filename = `${r.numero}_${nombre}.pdf`;
+  return { blob: d.output('blob'), filename };
 }
 
 export function downloadBlob(blob, filename) {
@@ -410,18 +387,13 @@ export function downloadBlob(blob, filename) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-export function waLink(phone, text) {
-  const digits = String(phone || '').replace(/\D/g, '');
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
-}
-
-export async function sharePdfOrWhatsApp({ blob, filename, title, text, phone }) {
-  const file = new File([blob], filename, { type: 'application/pdf' });
-  const canFiles = navigator.canShare && navigator.canShare({ files: [file] });
-  if (canFiles) {
+/** Comparte un archivo con Web Share (WhatsApp, etc.); si no se puede, lo descarga. */
+export async function shareFile(blob, filename, { title, text, type } = {}) {
+  const file = new File([blob], filename, { type: type || blob.type || 'application/octet-stream' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title, text });
       return 'shared';
@@ -430,44 +402,5 @@ export async function sharePdfOrWhatsApp({ blob, filename, title, text, phone })
     }
   }
   downloadBlob(blob, filename);
-  window.open(waLink(phone, text), '_blank', 'noopener');
-  return 'whatsapp';
-}
-
-export function mantenimientoWhatsAppText(mant, client) {
-  const eq = mant.equipo || {};
-  const lineas = [
-    `SEID — Informe de mantenimiento (DEMO)`,
-    ``,
-    `Cliente: ${client ? client.nombre : '—'}`,
-    `Fecha: ${formatFecha(mant.fecha)}`,
-    `Tipo: ${mant.tipo === 'correctivo' ? 'Correctivo' : 'Preventivo'}`,
-    `OT: ${mant.ot || '—'}`,
-    `Equipo: ${eq.tipo || ''} ${eq.capacidadBTU ? eq.capacidadBTU + ' BTU' : ''} ${eq.marca || ''}`.replace(/\s+/g, ' ').trim(),
-    eq.ubicacion ? `Ubicación del equipo: ${eq.ubicacion}` : '',
-    `Próximo mantenimiento: ${formatFecha(mant.proximoMantenimiento)}`,
-    mant.observaciones ? `Observaciones: ${mant.observaciones}` : '',
-    ``,
-    `Este mensaje se genera desde la demostración del panel SEID. Los datos son de ejemplo.`
-  ];
-  return lineas.filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');
-}
-
-export function quoteWhatsAppText(quote, client) {
-  const items = quote.items.map((it) => `• ${it.nombre}: ${formatBs(it.precio)}`).join('\n');
-  return [
-    `SEID — Cotización de aires (DEMO)`,
-    ``,
-    `Cliente: ${client ? client.nombre : quote.clienteNombre || '—'}`,
-    `Fecha: ${formatFecha(quote.fecha)}`,
-    `N.º ${quote.numero}`,
-    ``,
-    items,
-    ``,
-    `Subtotal: ${formatBs(quote.subtotal)}`,
-    `Margen (${quote.margen} %): ${formatBs(quote.margenMonto)}`,
-    `TOTAL: ${formatBs(quote.total)}`,
-    ``,
-    `Precios de demostración, no son una oferta formal.`
-  ].join('\n');
+  return 'downloaded';
 }

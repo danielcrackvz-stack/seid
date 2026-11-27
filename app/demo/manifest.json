@@ -1,17 +1,26 @@
 {
-  "name": "SEID — Panel de trabajo",
+  "id": "./",
+  "name": "SEID · Panel de trabajo",
   "short_name": "SEID",
-  "description": "Demostración del panel de SEID para el Ing. Abel Galarza, Santa Cruz, Bolivia.",
-  "start_url": "./index.html",
+  "description": "Trabajos, mantenimientos, firmas y PDF del Ing. Abel Galarza, SEID, Santa Cruz.",
+  "start_url": "./index.html#/inicio",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F4F5F7",
-  "theme_color": "#014397",
+  "background_color": "#FAF9F6",
+  "theme_color": "#FFFFFF",
   "lang": "es-BO",
+  "dir": "ltr",
+  "categories": ["business", "productivity"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nuevo trabajo", "short_name": "Nuevo", "url": "./index.html#/nuevo", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mantenimiento de aire", "short_name": "Mantenimiento", "url": "./index.html#/nuevo/mantenimiento-aire", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Historial", "url": "./index.html#/historial", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -1,1410 +1,1682 @@
-/* SEID — panel de trabajo (demo navegable, sin backend). */
-import * as db from './data.js';
-import {
-  formatFecha,
-  formatBs,
-  formatPhone,
-  generateMaintenancePdf,
-  generateQuotePdf,
-  downloadBlob,
-  waLink,
-  sharePdfOrWhatsApp,
-  mantenimientoWhatsAppText,
-  quoteWhatsAppText
-} from './pdf.js';
+/* SEID — panel de trabajo del Ing. Abel Galarza (PWA offline-first). */
+import * as store from './store.js';
+import * as rec from './records.js';
+import * as cat from './catalog.js';
+import * as fmt from './format.js';
+import * as auth from './auth.js';
+import * as api from './api.js';
+import * as sample from './sample.js';
+import { createSignaturePad, compressPhoto } from './signature.js';
+import { generarPdf, shareFile, downloadBlob } from './pdf.js';
+import { ICO, iconoServicio, toast, confirmDialog, alertDialog, viewPhoto, screen } from './ui.js';
+import { APP_VERSION, TECNICO_NOMBRE, WHATSAPP_NUMBER } from './config.js';
 
-window.SEID_CHECKLIST = db.CHECKLIST;
+const esc = fmt.esc;
+const app = document.getElementById('app');
+const DRAFT_KEY = 'seid-borrador';
 
-let state = db.loadState();
-let draft = null;
-let quoteDraft = null;
-let calCursor = startOfMonth(new Date());
-let calSelected = db.todayISO();
-let toastTimer = 0;
-let menuOpen = false;
-let trabajoFiltro = 'todos';
-let clienteQuery = '';
+let draft = loadDraft();
+let nota = null;
+let cierre = null;
+let pads = {};
+let installPrompt = null;
+let lastHash = '';
+let hf = { q: '', tipo: 'todos', servicio: '', estado: '', desde: '', hasta: '', orden: 'recientes' };
+let hfOpen = false;
+let histVista = 'registros';
+let clienteQ = '';
+let calCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let calSel = rec.todayISO();
+let draftDate = '';
+let pinBuffer = '';
+let pinFails = 0;
+let pinBlockedUntil = 0;
+let welcomeErr = '';
 
-const ICO = {
-  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-8.5z"/></svg>',
-  people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><circle cx="9.5" cy="7" r="3"/><path d="M22 19v-1a3.5 3.5 0 0 0-2.5-3.35"/><path d="M16.5 4.2a3 3 0 0 1 0 5.6"/></svg>',
-  bag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
-  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>',
-  quote: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h7l6 6v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M14 4v6h6M8 14h8M8 18h5"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>',
-  more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg>',
-  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16.5 20.5 21"/></svg>',
-  wa: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 1.8a8.2 8.2 0 0 1 7 13.4l-.3.4.5 3.1-3.1-.8-.4.2A8.2 8.2 0 1 1 12 3.8zm-3.4 3.5c-.2 0-.5.1-.7.3-.3.3-.8.9-.8 2.1 0 1.2.9 2.4 1 2.6 1.7 2.9 4.3 4.3 6.2 4.8.5.1 1 .1 1.3-.2.4-.4 1-1.2 1.1-1.5.1-.3.1-.6 0-.7l-1.7-.9c-.2-.1-.3-.1-.5.1l-.7.8c-.1.2-.3.2-.5.1-1-.4-2.1-1.3-2.8-2.6-.1-.2 0-.3.1-.5l.4-.5c.1-.2.1-.3 0-.5L9.3 7.8c-.1-.2-.3-.5-.7-.5z"/></svg>',
-  wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4.5 4.5 0 0 0-6.1 6.1L4 17l3 3 4.6-4.6a4.5 4.5 0 0 0 6.1-6.1L15.5 11 13 8.5l1.7-2.2z"/></svg>',
-  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 20v-1a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v1"/><circle cx="12" cy="7" r="3.2"/></svg>',
-  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>',
-  pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v6h6"/></svg>',
-  chevronL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5 8 12l7 7"/></svg>',
-  chevronR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>'
-};
+/* ---------- utilidades ---------- */
 
-function wordmarkHtml(variant) {
-  const isLogin = variant === 'login';
-  const cls = isLogin ? 'wordmark wordmark--login' : 'wordmark wordmark--app';
-  const src = isLogin ? 'img/logo.png' : 'img/logo-header.png';
-  const size = isLogin ? 'width="559" height="210"' : 'width="559" height="166"';
-  return `<a class="${cls}" href="#/inicio" aria-label="SEID, ir al inicio">
-    <img class="wordmark__img" src="${src}" ${size} alt="SEID, Servicios de Electricidad Industrial y Domiciliaria">
-  </a>`;
+function D() { return store.data(); }
+function tecnico() { return store.meta('tecnicoNombre') || TECNICO_NOMBRE; }
+
+function saveDraft() {
+  try {
+    if (draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    else localStorage.removeItem(DRAFT_KEY);
+  } catch { /* */ }
 }
-
-function badge() {
-  return '<span class="demo-badge">DEMO · datos de ejemplo</span>';
-}
-
-function persist() { db.saveState(state); }
-
-function toast(msg) {
-  document.querySelectorAll('.toast').forEach((n) => n.remove());
-  const n = document.createElement('div');
-  n.className = 'toast';
-  n.setAttribute('role', 'status');
-  n.textContent = msg;
-  document.body.appendChild(n);
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => n.remove(), 2800);
-}
-
-function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Buenos días';
-  if (h < 19) return 'Buenas tardes';
-  return 'Buenas noches';
-}
-
-function firstName(full) {
-  const s = (full || '').replace(/\s*\(ejemplo\)\s*/gi, ' ').trim();
-  const parts = s.split(/\s+/);
-  if (parts[0] === 'Ing.' && parts[1]) return `${parts[0]} ${parts[1]}`;
-  return parts[0] || 'Ingeniero';
-}
-
-function daysLabel(days) {
-  if (days === 0) return 'Hoy';
-  if (days === 1) return 'Mañana';
-  if (days === -1) return 'Ayer';
-  if (days < 0) return `Hace ${Math.abs(days)} días`;
-  return `En ${days} días`;
-}
-
-function pillForDays(days) {
-  if (days < 0) return `<span class="pill pill--overdue">${daysLabel(days)}</span>`;
-  if (days <= 15) return `<span class="pill pill--soon">${daysLabel(days)}</span>`;
-  return `<span class="pill pill--ok">${daysLabel(days)}</span>`;
-}
-
-function tipoTrabajoLabel(key) {
-  return (db.TIPOS_TRABAJO.find((t) => t.key === key) || { label: key }).label;
-}
-function estadoLabel(key) {
-  return (db.ESTADOS_TRABAJO.find((t) => t.key === key) || { label: key }).label;
+function loadDraft() {
+  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch { return null; }
 }
 
 function parseRoute() {
-  const raw = (location.hash || '#/login').replace(/^#/, '');
+  const raw = (location.hash || '#/inicio').replace(/^#\/?/, '');
   const [path, qs] = raw.split('?');
   const parts = path.split('/').filter(Boolean);
-  const q = Object.fromEntries(new URLSearchParams(qs || ''));
-  return { parts, q, name: parts[0] || 'login', id: parts[1] || '', sub: parts[2] || '' };
+  return { name: parts[0] || 'inicio', id: decodeURIComponent(parts[1] || ''), sub: parts[2] || '', q: Object.fromEntries(new URLSearchParams(qs || '')) };
 }
 
 function go(hash) {
-  if (!hash.startsWith('#')) hash = '#' + hash;
   if (location.hash === hash) render();
   else location.hash = hash;
 }
 
-function sessionOrLogin(route) {
-  const session = db.getSession();
-  if (!session && route.name !== 'login') {
-    go('#/login');
-    return null;
-  }
-  return session;
+function saludo() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
 }
 
-function headerBar({ title, back, showMenu = true } = {}) {
-  const left = back
-    ? `<button class="icon-btn" type="button" data-act="back" aria-label="Volver">${ICO.back}</button>`
-    : wordmarkHtml();
-  const mid = title ? `<h1 class="screen-title">${esc(title)}</h1>` : badge();
-  const right = showMenu
-    ? `<button class="icon-btn" type="button" data-act="menu" aria-label="Más opciones">${ICO.more}</button>`
-    : '<span style="width:2.75rem"></span>';
-  return `<header class="app-header">
-    <div class="header-side">${left}</div>
-    ${mid}
-    <div class="header-side">${right}</div>
-  </header>`;
+function nombreCorto(n) {
+  const p = String(n || '').trim().split(/\s+/);
+  if (/^ing\.?$/i.test(p[0]) && p[1]) return `${p[0]} ${p[1]}`;
+  return p[0] || '';
 }
 
-function tabbar(active) {
-  const items = [
-    ['inicio', ICO.home, 'Inicio'],
-    ['clientes', ICO.people, 'Clientes'],
-    ['trabajos', ICO.bag, 'Trabajos'],
-    ['agenda', ICO.cal, 'Agenda'],
-    ['cotizar', ICO.quote, 'Cotizar']
-  ];
-  return `<nav class="tabbar" aria-label="Principal">
-    ${items.map(([id, icon, label]) => `
-      <a href="#/${id}" class="${active === id ? 'is-active' : ''}" ${active === id ? 'aria-current="page"' : ''}>
-        ${icon}<span>${label}</span>
-      </a>`).join('')}
-  </nav>`;
+function estadoPill(r) {
+  if (r.bloqueado) return `<span class="pill pill--done">${ICO.lock}Firmado</span>`;
+  return `<span class="pill pill--${r.estado}">${esc(cat.estadoLabel(r.estado))}</span>`;
 }
 
-function shell(content, { title, back, tab, flush = false } = {}) {
-  return `${headerBar({ title, back })}
-    <main class="app-main${flush ? ' app-main--flush' : ''}">${content}</main>
-    ${tabbar(tab)}`;
-}
-
-function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function iconWrap(svg) {
-  return `<span class="action-btn__icon" aria-hidden="true">${svg}</span>`;
-}
-
-function viewLogin() {
-  const remembered = db.getSession()?.nombre || 'Ing. Abel Galarza';
-  return `<div class="login">
-    <div class="login-brand">${wordmarkHtml('login')}</div>
-    <p class="kicker">Panel de trabajo</p>
-    <div class="demo-wrap">${badge()}</div>
-    <div class="login-panel">
-      <h1>Entrar al panel</h1>
-      <p class="muted" style="margin-top:0">Para el Ing. Abel Galarza.</p>
-      <p class="note">Esta es una <strong>demostración</strong>. El inicio de sesión está simulado: puede entrar con cualquier nombre y cualquier contraseña. La contraseña <strong>no se guarda</strong> en el navegador ni en un servidor. Los datos de ejemplo quedan solo en este dispositivo (almacenamiento local) y no se envían a SEID. En la versión real sí se verificará su acceso.</p>
-      <form id="login-form">
-        <div class="field">
-          <label for="login-nombre">Su nombre</label>
-          <input id="login-nombre" name="nombre" autocomplete="name" value="${esc(remembered)}" required>
-        </div>
-        <div class="field">
-          <label for="login-clave">Contraseña (no se guarda)</label>
-          <input id="login-clave" name="clave" type="password" autocomplete="off" placeholder="Cualquier texto; no se almacena">
-        </div>
-        <button class="btn btn--block" type="submit">Entrar al panel</button>
-      </form>
-    </div>
-  </div>`;
-}
-
-function viewInicio(session) {
-  const name = firstName(session?.nombre || 'Ing. Abel Galarza');
-  const upcoming = db.upcomingMaintenance(state, 15);
-  const month = db.currentMonthKey();
-  const trabajosMes = state.trabajos.filter((t) => db.monthKey(t.fecha) === month);
-  const ingresos = trabajosMes.filter((t) => t.estado === 'cobrado').reduce((s, t) => s + Number(t.monto || 0), 0);
-  const recientes = [...state.mantenimientos].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 3);
-  const upcomingHtml = upcoming.length
-    ? `<div class="list">${upcoming.map((m) => upcomingCard(m)).join('')}</div>`
-    : '<p class="empty">No hay mantenimientos en los próximos 15 días.</p>';
-
-  return shell(`
-    <p class="page-kicker">${greeting()}</p>
-    <h1 class="page-title">${esc(name)}</h1>
-    <div class="action-grid">
-      <a class="action-btn" href="#/mantenimiento">${iconWrap(ICO.wrench)} Nuevo mantenimiento</a>
-      <a class="action-btn action-btn--alt" href="#/trabajos/nuevo">${iconWrap(ICO.bag)} Nuevo trabajo</a>
-      <a class="action-btn action-btn--amber" href="#/clientes/nuevo">${iconWrap(ICO.user)} Nuevo cliente</a>
-    </div>
-    <div class="section-label"><span>Próximos mantenimientos</span><a href="#/agenda">Ver agenda</a></div>
-    ${upcomingHtml}
-    <div class="section-label"><span>Este mes</span></div>
-    <div class="stats">
-      <div class="stat"><div class="num">${trabajosMes.length}</div><div class="lbl">Trabajos registrados</div></div>
-      <div class="stat"><div class="num">${formatBs(ingresos)}</div><div class="lbl">Ingresos cobrados</div></div>
-    </div>
-    <div class="section-label"><span>Últimos mantenimientos</span></div>
-    <div class="list">
-      ${recientes.map((m) => {
-        const c = db.getClient(state, m.clienteId);
-        return `<a class="list-card" href="#/mantenimiento/${m.id}">
-          <div class="list-card__top">
-            <h3>${esc(c ? c.nombre : 'Cliente')}</h3>
-            <span class="pill">${m.tipo === 'correctivo' ? 'Correctivo' : 'Preventivo'}</span>
-          </div>
-          <p>${esc(formatFecha(m.fecha))} · ${esc(m.ot)} · ${esc(m.equipo?.tipo || '')}</p>
-        </a>`;
-      }).join('')}
-    </div>
-  `, { tab: 'inicio' });
-}
-
-function upcomingCard(m) {
-  const c = m.client;
-  const cls = m.days < 0 ? 'card--danger' : 'card--warn';
-  const eq = m.equipo || {};
-  const phone = c?.telefono || '';
-  const text = `Hola, le escribe SEID. Le recuerdo el mantenimiento de su aire programado para el ${formatFecha(m.proximoMantenimiento)}. (Mensaje de demostración)`;
-  return `<article class="card ${cls}">
-    <div class="list-card__top">
-      <h3>${esc(c ? c.nombre : 'Cliente')}</h3>
-      ${pillForDays(m.days)}
-    </div>
-    <p>${esc(eq.tipo || 'Equipo')} ${eq.capacidadBTU ? esc(eq.capacidadBTU) + ' BTU' : ''} · ${esc(eq.ubicacion || '')}</p>
-    <p>${esc(c?.zona || m.ubicacion || '')}</p>
-    <p class="small muted">Programado para el ${esc(formatFecha(m.proximoMantenimiento, true))}</p>
-    ${phone ? `<a class="wa-mini" href="${waLink(phone, text)}" target="_blank" rel="noopener">${ICO.wa} WhatsApp al cliente</a>` : ''}
-  </article>`;
-}
-
-function viewClientes(q = '') {
-  const query = q.trim().toLowerCase();
-  const list = state.clientes.filter((c) => {
-    const blob = `${c.nombre} ${c.zona} ${c.direccion} ${c.telefono}`.toLowerCase();
-    return !query || blob.includes(query);
-  });
-  return shell(`
-    <h1 class="page-title">Clientes</h1>
-    <div class="search">
-      ${ICO.search}
-      <label class="visually-hidden" for="q-clientes">Buscar cliente</label>
-      <input id="q-clientes" type="search" placeholder="Buscar por nombre, zona o teléfono" value="${esc(q)}" data-act="search-clientes">
-    </div>
-    <a class="btn btn--block" href="#/clientes/nuevo" style="margin-bottom:1rem">${ICO.plus} Nuevo cliente</a>
-    <div class="list">
-      ${list.length ? list.map((c) => `
-        <a class="list-card" href="#/clientes/${c.id}">
-          <div class="list-card__top">
-            <h3>${esc(c.nombre)}</h3>
-            <span class="pill">${c.equipos.length} ${c.equipos.length === 1 ? 'equipo' : 'equipos'}</span>
-          </div>
-          <p>${esc(c.zona)}</p>
-          <p class="small muted">${esc(formatPhone(c.telefono))}</p>
-        </a>`).join('') : '<p class="empty">No se encontró ningún cliente.</p>'}
-    </div>
-  `, { tab: 'clientes' });
-}
-
-function viewClienteNuevo() {
-  return shell(`
-    <h1 class="page-title">Nuevo cliente</h1>
-    <form id="form-cliente">
-      <div class="field"><label for="c-nombre">Nombre</label><input id="c-nombre" name="nombre" required placeholder="Nombre y apellido"></div>
-      <div class="field"><label for="c-tel">WhatsApp o teléfono</label><input id="c-tel" name="telefono" inputmode="tel" placeholder="5917…"></div>
-      <div class="field"><label for="c-zona">Zona</label><input id="c-zona" name="zona" placeholder="Ej. Equipetrol, Santa Cruz"></div>
-      <div class="field"><label for="c-dir">Dirección</label><input id="c-dir" name="direccion" placeholder="Calle, número o referencia"></div>
-      <div class="field"><label for="c-notas">Notas (opcional)</label><textarea id="c-notas" name="notas"></textarea></div>
-      <button class="btn btn--block" type="submit">Guardar cliente</button>
-    </form>
-  `, { title: 'Nuevo cliente', back: true, tab: 'clientes' });
-}
-
-function viewClienteDetalle(id) {
-  const c = db.getClient(state, id);
-  if (!c) return shell('<p class="empty">No se encontró ese cliente.</p>', { back: true, tab: 'clientes' });
-  const hist = state.mantenimientos.filter((m) => m.clienteId === id).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const jobs = state.trabajos.filter((t) => t.clienteId === id).sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const text = `Hola, le escribe SEID (Ing. Abel Galarza). (Mensaje de demostración)`;
-  return shell(`
-    <h1 class="page-title">${esc(c.nombre)}</h1>
-    <div class="card">
-      <dl class="kv">
-        <dt>Teléfono</dt><dd>${esc(formatPhone(c.telefono))}</dd>
-        <dt>Zona</dt><dd>${esc(c.zona || '—')}</dd>
-        <dt>Dirección</dt><dd>${esc(c.direccion || '—')}</dd>
-        ${c.notas ? `<dt>Notas</dt><dd>${esc(c.notas)}</dd>` : ''}
-      </dl>
-      ${c.telefono ? `<a class="wa-mini" href="${waLink(c.telefono, text)}" target="_blank" rel="noopener">${ICO.wa} WhatsApp</a>` : ''}
-    </div>
-    <div class="section-label"><span>Equipos</span></div>
-    <div class="list">
-      ${c.equipos.map((e) => `
-        <div class="list-card">
-          <div class="list-card__top">
-            <h3>${esc(e.tipo)} · ${esc(e.ubicacion || 'Sin ubicación')}</h3>
-            <span class="pill">${esc(e.capacidadBTU || '')} BTU</span>
-          </div>
-          <p>${esc(e.marca)} ${esc(e.modelo)}</p>
-          <p class="small muted">Serie ${esc(e.serie || '—')} · ${esc(e.refrigerante || '')}</p>
-        </div>`).join('') || '<p class="empty">Todavía no hay equipos registrados.</p>'}
-    </div>
-    <a class="btn btn--ghost btn--block" href="#/mantenimiento?cliente=${c.id}" style="margin-top:.7rem">${ICO.plus} Nuevo mantenimiento</a>
-    <div class="section-label"><span>Historial de mantenimientos</span></div>
-    <div class="list">
-      ${hist.length ? hist.map((m) => `
-        <a class="list-card" href="#/mantenimiento/${m.id}">
-          <div class="list-card__top">
-            <h3>${esc(formatFecha(m.fecha))}</h3>
-            <span class="pill">${m.tipo === 'correctivo' ? 'Correctivo' : 'Preventivo'}</span>
-          </div>
-          <p>${esc(m.ot)} · ${esc(m.equipo?.tipo || '')} · Próximo: ${esc(formatFecha(m.proximoMantenimiento))}</p>
-        </a>`).join('') : '<p class="empty">Aún no hay mantenimientos.</p>'}
-    </div>
-    <div class="section-label"><span>Otros trabajos</span></div>
-    <div class="list">
-      ${jobs.length ? jobs.map((t) => `
-        <a class="list-card" href="#/trabajos/${t.id}">
-          <div class="list-card__top">
-            <h3>${esc(tipoTrabajoLabel(t.tipo))}</h3>
-            <span class="pill pill--${t.estado}">${esc(estadoLabel(t.estado))}</span>
-          </div>
-          <p>${esc(formatFecha(t.fecha))} · ${esc(formatBs(t.monto))}</p>
-        </a>`).join('') : '<p class="muted small">No hay otros trabajos registrados.</p>'}
-    </div>
-  `, { title: 'Cliente', back: true, tab: 'clientes' });
-}
-
-function emptyDraft(prefill = {}) {
-  const clienteId = prefill.clienteId || '';
-  const c = clienteId ? db.getClient(state, clienteId) : null;
-  const d = {
-    step: 1,
-    fecha: db.todayISO(),
-    tipo: 'preventivo',
-    ot: db.nextOT(state),
-    clienteId,
-    ubicacion: c ? `${c.direccion}${c.zona ? ' — ' + c.zona : ''}` : '',
-    tecnico: db.getSession()?.nombre || 'Ing. Abel Galarza',
-    auxiliar: '',
-    equipoId: c && c.equipos.length === 1 ? c.equipos[0].id : '',
-    equipo: { tipo: '', marca: '', modelo: '', serie: '', capacidadBTU: '', refrigerante: '', ubicacion: '' },
-    checklist: {},
-    paramsAntes: { presionBaja: '', presionAlta: '', amperaje: '', voltaje: '' },
-    paramsDespues: { presionBaja: '', presionAlta: '', amperaje: '', voltaje: '' },
-    observaciones: '',
-    diagnostico: [''],
-    trabajosCorrectivos: {},
-    repuestos: [{ nombre: '', cantidad: '' }],
-    fotos: [],
-    firmaCliente: '',
-    firmaTecnico: ''
-  };
-  if (d.equipoId && c) applyEquipo(d, c.equipos.find((e) => e.id === d.equipoId));
-  return d;
-}
-
-function applyEquipo(d, e) {
-  if (!e) return;
-  d.equipo = {
-    tipo: e.tipo, marca: e.marca, modelo: e.modelo, serie: e.serie,
-    capacidadBTU: e.capacidadBTU, refrigerante: e.refrigerante, ubicacion: e.ubicacion
-  };
-}
-
-function viewMantenimientoNuevo() {
-  if (!draft) draft = emptyDraft();
-  const step = draft.step || 1;
-  const total = 6;
-  const titles = ['Datos generales', 'Equipo', 'Lista de verificación', 'Parámetros', 'Observaciones', 'Fotos y firmas'];
-  return shell(`
-    <div class="wizard-progress">
-      <div class="step-meta">Paso ${step} de ${total}</div>
-      <div class="dots" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="${i + 1 < step ? 'is-done' : i + 1 === step ? 'is-on' : ''}"></i>`).join('')}</div>
-    </div>
-    <h1 class="page-title">${titles[step - 1]}</h1>
-    ${wizardStep(step)}
-    <div class="wizard-nav">
-      ${step > 1 ? '<button class="btn btn--ghost" type="button" data-wiz="prev">Atrás</button>' : '<a class="btn btn--ghost" href="#/inicio">Cancelar</a>'}
-      ${step < total
-        ? '<button class="btn" type="button" data-wiz="next">Siguiente</button>'
-        : '<button class="btn btn--amber" type="button" data-wiz="save">Guardar</button>'}
-    </div>
-  `, { title: 'Mantenimiento', back: true, tab: 'inicio' });
-}
-
-function wizardStep(step) {
-  if (step === 1) return stepGeneral();
-  if (step === 2) return stepEquipo();
-  if (step === 3) return stepChecklist();
-  if (step === 4) return stepParams();
-  if (step === 5) return stepObs();
-  return stepFirmas();
-}
-
-function stepGeneral() {
-  const options = state.clientes.map((c) => `<option value="${c.id}" ${draft.clienteId === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('');
-  return `<div class="field">
-      <label for="m-fecha">Fecha</label>
-      <input id="m-fecha" type="date" value="${esc(draft.fecha)}" data-f="fecha">
-    </div>
-    <p class="label" style="font-weight:650;margin:0 0 .4rem">Tipo de mantenimiento</p>
-    <div class="choice-grid" style="margin-bottom:0.9rem">
-      <button type="button" class="choice ${draft.tipo === 'preventivo' ? 'is-on' : ''}" data-tipo="preventivo">Preventivo</button>
-      <button type="button" class="choice ${draft.tipo === 'correctivo' ? 'is-on' : ''}" data-tipo="correctivo">Correctivo</button>
-    </div>
-    <div class="field"><label for="m-ot">Orden de trabajo (OT)</label><input id="m-ot" value="${esc(draft.ot)}" data-f="ot"></div>
-    <div class="field">
-      <label for="m-cliente">Cliente</label>
-      <select id="m-cliente" data-f="clienteId">
-        <option value="">Elegir cliente…</option>
-        ${options}
-      </select>
-      <p class="small muted" style="margin:.4rem 0 0"><a href="#/clientes/nuevo">+ Registrar un cliente nuevo</a></p>
-    </div>
-    <div class="field"><label for="m-ubi">Ubicación del trabajo</label><input id="m-ubi" value="${esc(draft.ubicacion)}" data-f="ubicacion" placeholder="Dirección o zona"></div>
-    <div class="field"><label for="m-tec">Técnico</label><input id="m-tec" value="${esc(draft.tecnico)}" data-f="tecnico"></div>
-    <div class="field"><label for="m-aux">Auxiliar (opcional)</label><input id="m-aux" value="${esc(draft.auxiliar)}" data-f="auxiliar"></div>`;
-}
-
-function stepEquipo() {
-  const c = db.getClient(state, draft.clienteId);
-  const picks = c && c.equipos.length
-    ? `<p class="label" style="font-weight:650;margin:0 0 .4rem">Equipos de este cliente</p>
-       <div class="equip-pick">
-         ${c.equipos.map((e) => `<button type="button" class="${draft.equipoId === e.id ? 'is-on' : ''}" data-equipo="${e.id}">
-           ${esc(e.tipo)} · ${esc(e.ubicacion || 'Sin ubicación')}<br>
-           <span class="small muted">${esc(e.marca)} ${esc(e.modelo)} · ${esc(e.capacidadBTU)} BTU</span>
-         </button>`).join('')}
-         <button type="button" class="${!draft.equipoId ? 'is-on' : ''}" data-equipo="">Otro equipo / escribir datos</button>
-       </div>`
-    : '<p class="note">Si elige un cliente con equipos, podrá cargarlos aquí de un toque. También puede escribir los datos a mano.</p>';
-  const eq = draft.equipo;
-  return `${picks}
-    <p class="label" style="font-weight:650;margin:.2rem 0 .4rem">Tipo de equipo</p>
-    <div class="chip-row">
-      ${db.TIPOS_EQUIPO.map((t) => `<button type="button" class="chip ${eq.tipo === t ? 'is-on' : ''}" data-eqtipo="${esc(t)}">${esc(t)}</button>`).join('')}
-    </div>
-    <div class="field-row">
-      <div class="field"><label for="eq-marca">Marca</label><input id="eq-marca" value="${esc(eq.marca)}" data-eq="marca"></div>
-      <div class="field"><label for="eq-modelo">Modelo</label><input id="eq-modelo" value="${esc(eq.modelo)}" data-eq="modelo"></div>
-    </div>
-    <div class="field"><label for="eq-serie">Número de serie</label><input id="eq-serie" value="${esc(eq.serie)}" data-eq="serie"></div>
-    <div class="field-row">
-      <div class="field"><label for="eq-btu">Capacidad (BTU)</label><input id="eq-btu" value="${esc(eq.capacidadBTU)}" data-eq="capacidadBTU" placeholder="18.000"></div>
-      <div class="field"><label for="eq-ref">Refrigerante</label><input id="eq-ref" value="${esc(eq.refrigerante)}" data-eq="refrigerante" placeholder="R-410A"></div>
-    </div>
-    <div class="field"><label for="eq-ubi">Ubicación del equipo</label><input id="eq-ubi" value="${esc(eq.ubicacion)}" data-eq="ubicacion" placeholder="Sala, oficina, dormitorio…"></div>`;
-}
-
-function stepChecklist() {
-  return `<p class="muted" style="margin-top:-.4rem">Marque lo que ya realizó. Toque la fila para sí o no.</p>
-    ${db.CHECKLIST.map((item) => {
-      const on = !!draft.checklist[item.key];
-      return `<button type="button" class="toggle-row ${on ? 'is-on' : ''}" data-check="${item.key}" aria-pressed="${on}">
-        <span>${esc(item.label)}</span><span class="switch" aria-hidden="true"></span>
-      </button>`;
-    }).join('')}
-    <button class="btn btn--ghost btn--block" type="button" data-act="check-all" style="margin-top:.6rem">Marcar todo como hecho</button>`;
-}
-
-function stepParams() {
-  const row = (key, label, unit) => `
-    <div class="field">
-      <span class="label">${label} (${unit})</span>
-      <div class="field-row">
-        <div class="field" style="margin:0">
-          <label class="visually-hidden" for="a-${key}">${label} antes</label>
-          <input id="a-${key}" value="${esc(draft.paramsAntes[key] || '')}" data-pa="${key}" placeholder="Antes">
-        </div>
-        <div class="field" style="margin:0">
-          <label class="visually-hidden" for="d-${key}">${label} después</label>
-          <input id="d-${key}" value="${esc(draft.paramsDespues[key] || '')}" data-pd="${key}" placeholder="Después">
-        </div>
-      </div>
-    </div>`;
-  return `<p class="muted" style="margin-top:-.4rem">Izquierda: <strong>antes</strong>. Derecha: <strong>después</strong>.</p>
-    ${row('presionBaja', 'Presión baja', 'PSI')}
-    ${row('presionAlta', 'Presión alta', 'PSI')}
-    ${row('amperaje', 'Amperaje del compresor', 'A')}
-    ${row('voltaje', 'Voltaje', 'V')}`;
-}
-
-function stepObs() {
-  return `<div class="field">
-      <label for="m-obs">Observaciones</label>
-      <textarea id="m-obs" data-f="observaciones" placeholder="Lo que observó en la visita">${esc(draft.observaciones)}</textarea>
-    </div>
-    <p class="label" style="font-weight:650;margin:0 0 .4rem">Diagnóstico y recomendaciones para la próxima visita</p>
-    ${(draft.diagnostico.length ? draft.diagnostico : ['']).map((t, i) => `
-      <div class="field"><label class="visually-hidden" for="diag-${i}">Recomendación ${i + 1}</label>
-      <input id="diag-${i}" value="${esc(t)}" data-diag="${i}" placeholder="Ej. Revisar drenaje"></div>`).join('')}
-    <button class="btn btn--ghost btn--sm" type="button" data-act="add-diag" style="margin-bottom:1rem">${ICO.plus} Agregar otra</button>
-    <p class="label" style="font-weight:650;margin:0 0 .4rem">Trabajos correctivos</p>
-    ${db.CORRECTIVOS.map((item) => {
-      const on = !!draft.trabajosCorrectivos[item.key];
-      return `<button type="button" class="toggle-row ${on ? 'is-on' : ''}" data-corr="${item.key}" aria-pressed="${on}">
-        <span>${esc(item.label)}</span><span class="switch" aria-hidden="true"></span>
-      </button>`;
-    }).join('')}
-    <p class="label" style="font-weight:650;margin:1rem 0 .4rem">Repuestos utilizados</p>
-    ${draft.repuestos.map((r, i) => `
-      <div class="field-row">
-        <div class="field"><label class="visually-hidden" for="rep-n-${i}">Repuesto</label>
-          <input id="rep-n-${i}" value="${esc(r.nombre)}" data-rep="nombre" data-repi="${i}" placeholder="Repuesto"></div>
-        <div class="field"><label class="visually-hidden" for="rep-c-${i}">Cantidad</label>
-          <input id="rep-c-${i}" value="${esc(r.cantidad)}" data-rep="cantidad" data-repi="${i}" placeholder="Cant."></div>
-      </div>`).join('')}
-    <button class="btn btn--ghost btn--sm" type="button" data-act="add-rep">${ICO.plus} Agregar repuesto</button>`;
-}
-
-function stepFirmas() {
-  const thumbs = draft.fotos.length
-    ? `<div class="thumbs">${draft.fotos.map((src, i) => `<img src="${src}" alt="Foto ${i + 1}">`).join('')}</div>`
-    : '';
-  return `<div class="field">
-      <label for="m-fotos">Fotos (opcional, hasta 3)</label>
-      <input id="m-fotos" type="file" accept="image/*" capture="environment" multiple>
-      ${thumbs}
-    </div>
-    <div class="field">
-      <span class="label">Firma del cliente</span>
-      <div class="sig-box">
-        <canvas id="sig-cliente" width="640" height="280"></canvas>
-        <div class="sig-actions"><span>Firme con el dedo</span><button type="button" class="btn btn--ghost btn--sm" data-sigclear="cliente">Borrar</button></div>
-      </div>
-    </div>
-    <div class="field">
-      <span class="label">Firma del técnico</span>
-      <div class="sig-box">
-        <canvas id="sig-tecnico" width="640" height="280"></canvas>
-        <div class="sig-actions"><span>Firme con el dedo</span><button type="button" class="btn btn--ghost btn--sm" data-sigclear="tecnico">Borrar</button></div>
-      </div>
-    </div>
-    <p class="note">Al guardar se programará automáticamente el próximo mantenimiento a los <strong>6 meses</strong>.</p>`;
-}
-
-function collectWizardFields(root) {
-  root.querySelectorAll('[data-f]').forEach((n) => { draft[n.getAttribute('data-f')] = n.value; });
-  root.querySelectorAll('[data-eq]').forEach((n) => { draft.equipo[n.getAttribute('data-eq')] = n.value; });
-  root.querySelectorAll('[data-pa]').forEach((n) => { draft.paramsAntes[n.getAttribute('data-pa')] = n.value; });
-  root.querySelectorAll('[data-pd]').forEach((n) => { draft.paramsDespues[n.getAttribute('data-pd')] = n.value; });
-  root.querySelectorAll('[data-diag]').forEach((n) => { draft.diagnostico[Number(n.getAttribute('data-diag'))] = n.value; });
-  root.querySelectorAll('[data-rep]').forEach((n) => {
-    const i = Number(n.getAttribute('data-repi'));
-    if (!draft.repuestos[i]) draft.repuestos[i] = { nombre: '', cantidad: '' };
-    draft.repuestos[i][n.getAttribute('data-rep')] = n.value;
-  });
-  captureSignatures(root);
-}
-
-function captureSignatures(root) {
-  const c1 = root.querySelector('#sig-cliente');
-  const c2 = root.querySelector('#sig-tecnico');
-  if (c1 && c1.dataset.dirty === '1') draft.firmaCliente = c1.toDataURL('image/png');
-  if (c2 && c2.dataset.dirty === '1') draft.firmaTecnico = c2.toDataURL('image/png');
-}
-
-function saveMantenimiento() {
-  const proximo = db.addMonthsISO(draft.fecha, 6);
-  const rec = {
-    id: db.uid('m'),
-    fecha: draft.fecha,
-    tipo: draft.tipo,
-    ot: draft.ot,
-    clienteId: draft.clienteId,
-    ubicacion: draft.ubicacion,
-    tecnico: draft.tecnico,
-    auxiliar: draft.auxiliar,
-    equipoId: draft.equipoId,
-    equipo: { ...draft.equipo },
-    checklist: { ...draft.checklist },
-    paramsAntes: { ...draft.paramsAntes },
-    paramsDespues: { ...draft.paramsDespues },
-    observaciones: draft.observaciones,
-    diagnostico: (draft.diagnostico || []).map((s) => s.trim()).filter(Boolean),
-    trabajosCorrectivos: { ...draft.trabajosCorrectivos },
-    repuestos: (draft.repuestos || []).filter((r) => r.nombre && r.nombre.trim()),
-    fotos: draft.fotos.slice(0, 3),
-    firmaCliente: draft.firmaCliente,
-    firmaTecnico: draft.firmaTecnico,
-    proximoMantenimiento: proximo
-  };
-  state.mantenimientos.push(rec);
-  persist();
-  draft = null;
-  go('#/mantenimiento/' + rec.id + '?ok=1');
-}
-
-function viewMantenimientoDetalle(id, q = {}) {
-  const m = state.mantenimientos.find((x) => x.id === id);
-  if (!m) return shell('<p class="empty">No se encontró ese mantenimiento.</p>', { back: true, tab: 'inicio' });
-  const c = db.getClient(state, m.clienteId);
-  const days = db.daysUntil(m.proximoMantenimiento);
-  const ok = q.ok === '1';
-  const eq = m.equipo || {};
-  const hechas = db.CHECKLIST.filter((i) => m.checklist && m.checklist[i.key]).length;
-  return shell(`
-    ${ok ? `<div class="success-hero">
-      <div class="check">${ICO.check}</div>
-      <h1 class="page-title">Mantenimiento guardado</h1>
-      <p class="muted">Ya quedó registrado en este dispositivo (demostración).</p>
-    </div>` : `<h1 class="page-title">${esc(m.ot)}</h1>`}
-    <div class="card card--ok" style="margin-bottom:1rem">
-      <p style="margin:0;font-weight:750">Próximo mantenimiento</p>
-      <p style="margin:.25rem 0 0;font-size:1.15rem">${esc(formatFecha(m.proximoMantenimiento, true))}</p>
-      <p class="small muted" style="margin:.25rem 0 0">${esc(daysLabel(days))} · se programó automáticamente a los 6 meses</p>
-    </div>
-    <div class="card">
-      <dl class="kv">
-        <dt>Fecha</dt><dd>${esc(formatFecha(m.fecha))}</dd>
-        <dt>Tipo</dt><dd>${m.tipo === 'correctivo' ? 'Correctivo' : 'Preventivo'}</dd>
-        <dt>Cliente</dt><dd>${esc(c ? c.nombre : '—')}</dd>
-        <dt>Ubicación</dt><dd>${esc(m.ubicacion || '—')}</dd>
-        <dt>Técnico</dt><dd>${esc(m.tecnico || '—')}</dd>
-        <dt>Equipo</dt><dd>${esc(eq.tipo || '')} ${esc(eq.marca || '')} ${esc(eq.capacidadBTU || '')} ${eq.capacidadBTU ? 'BTU' : ''}</dd>
-        <dt>Verificación</dt><dd>${hechas} de ${db.CHECKLIST.length} puntos</dd>
-      </dl>
-    </div>
-    <div class="btn-row btn-row--stack" style="margin-top:1rem">
-      <button class="btn" type="button" data-pdf="${m.id}">${ICO.pdf} Generar PDF</button>
-      <button class="btn btn--wa" type="button" data-share="${m.id}">${ICO.wa} Compartir por WhatsApp</button>
-    </div>
-    <p class="small muted" style="margin-top:.7rem">Si el teléfono lo permite, al compartir se adjuntará el PDF. Si no, se descarga el archivo y se abre WhatsApp con un resumen escrito.</p>
-  `, { title: ok ? 'Listo' : 'Mantenimiento', back: true, tab: 'inicio' });
-}
-
-function viewTrabajos(filtro = 'todos') {
-  const list = state.trabajos
-    .filter((t) => filtro === 'todos' || t.estado === filtro)
-    .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  const chips = ['todos', ...db.ESTADOS_TRABAJO.map((e) => e.key)];
-  return shell(`
-    <h1 class="page-title">Trabajos y ventas</h1>
-    <div class="chip-row">
-      ${chips.map((k) => `<button type="button" class="chip ${filtro === k ? 'is-on' : ''}" data-filtro="${k}">${k === 'todos' ? 'Todos' : esc(estadoLabel(k))}</button>`).join('')}
-    </div>
-    <a class="btn btn--block" href="#/trabajos/nuevo" style="margin-bottom:1rem">${ICO.plus} Nuevo trabajo</a>
-    <div class="list">
-      ${list.length ? list.map((t) => {
-        const c = db.getClient(state, t.clienteId);
-        return `<a class="list-card" href="#/trabajos/${t.id}">
-          <div class="list-card__top">
-            <h3>${esc(tipoTrabajoLabel(t.tipo))}</h3>
-            <span class="pill pill--${t.estado}">${esc(estadoLabel(t.estado))}</span>
-          </div>
-          <p>${esc(c ? c.nombre : 'Sin cliente')} · ${esc(formatFecha(t.fecha))}</p>
-          <p style="font-weight:750;margin-top:.25rem">${esc(formatBs(t.monto))}</p>
-        </a>`;
-      }).join('') : '<p class="empty">No hay trabajos con ese filtro.</p>'}
-    </div>
-  `, { tab: 'trabajos' });
-}
-
-function viewTrabajoNuevo() {
-  const options = state.clientes.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
-  return shell(`
-    <h1 class="page-title">Nuevo trabajo</h1>
-    <form id="form-trabajo">
-      <div class="field">
-        <label for="t-tipo">Tipo</label>
-        <select id="t-tipo" name="tipo" required>
-          ${db.TIPOS_TRABAJO.map((t) => `<option value="${t.key}">${esc(t.label)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label for="t-cliente">Cliente</label>
-        <select id="t-cliente" name="clienteId">
-          <option value="">Elegir cliente…</option>
-          ${options}
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field"><label for="t-fecha">Fecha</label><input id="t-fecha" name="fecha" type="date" value="${db.todayISO()}" required></div>
-        <div class="field"><label for="t-monto">Monto (Bs)</label><input id="t-monto" name="monto" inputmode="decimal" placeholder="0" required></div>
-      </div>
-      <p class="label" style="font-weight:650;margin:0 0 .4rem">Estado</p>
-      <div class="chip-row" id="t-estado-row">
-        ${db.ESTADOS_TRABAJO.map((e, i) => `<button type="button" class="chip ${i === 0 ? 'is-on' : ''}" data-estado="${e.key}">${esc(e.label)}</button>`).join('')}
-      </div>
-      <input type="hidden" name="estado" id="t-estado" value="pendiente">
-      <div class="field"><label for="t-desc">Descripción</label><textarea id="t-desc" name="descripcion" placeholder="Qué se hizo o se va a hacer"></textarea></div>
-      <button class="btn btn--block" type="submit">Guardar trabajo</button>
-    </form>
-  `, { title: 'Nuevo trabajo', back: true, tab: 'trabajos' });
-}
-
-function viewTrabajoDetalle(id) {
-  const t = state.trabajos.find((x) => x.id === id);
-  if (!t) return shell('<p class="empty">No se encontró ese trabajo.</p>', { back: true, tab: 'trabajos' });
-  const c = db.getClient(state, t.clienteId);
-  return shell(`
-    <h1 class="page-title">${esc(tipoTrabajoLabel(t.tipo))}</h1>
-    <div class="card">
-      <div class="list-card__top" style="margin-bottom:.6rem">
-        <strong>${esc(formatBs(t.monto))}</strong>
-        <span class="pill pill--${t.estado}">${esc(estadoLabel(t.estado))}</span>
-      </div>
-      <dl class="kv">
-        <dt>Fecha</dt><dd>${esc(formatFecha(t.fecha))}</dd>
-        <dt>Cliente</dt><dd>${esc(c ? c.nombre : '—')}</dd>
-        <dt>Zona</dt><dd>${esc(c ? c.zona : '—')}</dd>
-        <dt>Detalle</dt><dd>${esc(t.descripcion || '—')}</dd>
-      </dl>
-    </div>
-    <p class="label" style="font-weight:650;margin:1rem 0 .4rem">Cambiar estado</p>
-    <div class="chip-row">
-      ${db.ESTADOS_TRABAJO.map((e) => `<button type="button" class="chip ${t.estado === e.key ? 'is-on' : ''}" data-setestado="${e.key}" data-tid="${t.id}">${esc(e.label)}</button>`).join('')}
-    </div>
-  `, { title: 'Trabajo', back: true, tab: 'trabajos' });
-}
-
-function isoFrom(year, month, day) {
-  const dt = new Date(year, month, day);
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, '0');
-  const d = String(dt.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function agendaItem(m) {
-  const c = db.getClient(state, m.clienteId);
-  const days = db.daysUntil(m.proximoMantenimiento);
-  return `<a class="list-card" href="#/mantenimiento/${m.id}">
-    <div class="list-card__top">
-      <h3>${esc(c ? c.nombre : 'Cliente')}</h3>
-      ${pillForDays(days)}
-    </div>
-    <p>${esc(formatFecha(m.proximoMantenimiento))} · ${esc(m.equipo?.tipo || '')} · ${esc(m.equipo?.ubicacion || '')}</p>
+function registroCard(r, { showClient = true } = {}) {
+  const total = rec.totalRegistro(r);
+  const notas = rec.eventosDe(r.id).filter((e) => e.tipo === 'nota').length;
+  return `<a class="rcard" href="#/registro/${r.id}">
+    <span class="rcard__icon">${iconoServicio(r.servicio)}</span>
+    <span class="rcard__body">
+      <span class="rcard__top">
+        <span class="rcard__title">${esc(showClient ? r.cliente?.nombre : r.servicioLabel)}</span>
+        ${estadoPill(r)}
+      </span>
+      <span class="rcard__sub">${esc(showClient ? cat.servicio(r.servicio).corto : r.numero)} · ${esc(fmt.fecha(r.fechaInicio, { corta: true }))}</span>
+      <span class="rcard__meta">
+        <span>${esc(r.numero)}</span>
+        ${notas ? `<span>${ICO.note}${notas} ${notas === 1 ? 'nota' : 'notas'}</span>` : ''}
+        ${total != null ? `<span class="rcard__money">${esc(fmt.bs(total))}</span>` : ''}
+      </span>
+    </span>
   </a>`;
 }
 
-function viewAgenda() {
-  const year = calCursor.getFullYear();
-  const month = calCursor.getMonth();
-  const first = new Date(year, month, 1);
-  const startIndex = (first.getDay() + 6) % 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const prevDays = new Date(year, month, 0).getDate();
-  const cells = [];
-  for (let i = 0; i < startIndex; i++) {
-    cells.push({ day: prevDays - startIndex + 1 + i, muted: true, iso: isoFrom(year, month - 1, prevDays - startIndex + 1 + i) });
-  }
-  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, muted: false, iso: isoFrom(year, month, d) });
-  while (cells.length % 7) {
-    const d = cells.length - (startIndex + daysInMonth) + 1;
-    cells.push({ day: d, muted: true, iso: isoFrom(year, month + 1, d) });
-  }
-  const byDay = {};
-  for (const m of state.mantenimientos) {
-    const iso = m.proximoMantenimiento;
-    if (!iso) continue;
-    (byDay[iso] ||= []).push(m);
-  }
-  const MESES_CAL = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  const monthName = MESES_CAL[month][0].toUpperCase() + MESES_CAL[month].slice(1) + ' de ' + year;
-  const selectedList = byDay[calSelected] || [];
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const monthList = state.mantenimientos
-    .filter((m) => m.proximoMantenimiento && m.proximoMantenimiento.startsWith(monthPrefix))
-    .sort((a, b) => a.proximoMantenimiento.localeCompare(b.proximoMantenimiento));
-
-  return shell(`
-    <h1 class="page-title">Agenda</h1>
-    <div class="info-callout">En la versión real, usted recibirá un aviso en el teléfono y un mensaje de WhatsApp <strong>15 días antes</strong> de cada mantenimiento programado. En esta demostración puede verlos aquí en el calendario.</div>
-    <div class="cal-nav">
-      <button class="icon-btn icon-btn--ink" type="button" data-cal="prev" aria-label="Mes anterior">${ICO.chevronL}</button>
-      <h2>${esc(monthName)}</h2>
-      <button class="icon-btn icon-btn--ink" type="button" data-cal="next" aria-label="Mes siguiente">${ICO.chevronR}</button>
-    </div>
-    <div class="cal-grid" aria-label="Calendario">
-      ${['L','M','M','J','V','S','D'].map((d) => `<div class="dow">${d}</div>`).join('')}
-      ${cells.map((c) => {
-        const items = byDay[c.iso] || [];
-        const dots = items.slice(0, 3).map((m) => {
-          const days = db.daysUntil(m.proximoMantenimiento);
-          const cls = days < 0 ? 'overdue' : days <= 15 ? 'soon' : '';
-          return `<i class="${cls}"></i>`;
-        }).join('');
-        const cls = [
-          c.muted ? 'is-muted' : '',
-          c.iso === db.todayISO() ? 'is-today' : '',
-          c.iso === calSelected ? 'is-selected' : ''
-        ].filter(Boolean).join(' ');
-        return `<button type="button" class="cal-day ${cls}" data-day="${c.iso}" aria-label="${c.iso}">
-          <span>${c.day}</span>
-          <span class="cal-dots">${dots}</span>
-        </button>`;
-      }).join('')}
-    </div>
-    <div class="section-label"><span>${calSelected === db.todayISO() ? 'Hoy' : formatFecha(calSelected, true)}</span></div>
-    <div class="list">
-      ${selectedList.length ? selectedList.map((m) => agendaItem(m)).join('') : `<p class="muted small">No hay mantenimientos este día. ${monthList.length ? 'Abajo está el resto del mes.' : ''}</p>`}
-    </div>
-    <div class="section-label"><span>Este mes</span></div>
-    <div class="list">
-      ${monthList.length ? monthList.map((m) => agendaItem(m)).join('') : '<p class="empty">No hay mantenimientos programados este mes.</p>'}
-    </div>
-  `, { tab: 'agenda' });
+function emptyState(icon, title, text, action = '') {
+  return `<div class="empty"><span class="empty__icon">${ICO[icon]}</span><p class="empty__title">${esc(title)}</p><p class="empty__text">${esc(text)}</p>${action}</div>`;
 }
 
-function emptyQuote() {
-  return { clienteId: '', items: [], margen: 20, clienteNombre: '' };
+function waIcon(phone, text, label = 'WhatsApp') {
+  if (!phone) return '';
+  return `<a class="btn btn--wa btn--sm" href="${esc(fmt.waLink(phone, text))}" target="_blank" rel="noopener">${ICO.wa}${esc(label)}</a>`;
 }
 
-function quoteMath(q) {
-  const subtotal = q.items.reduce((s, it) => s + Number(it.precio || 0), 0);
-  const margenMonto = Math.round(subtotal * (Number(q.margen) || 0) / 100);
-  const total = subtotal + margenMonto;
-  return { subtotal, margenMonto, total };
+function textoRecordatorio(r) {
+  const n = nombreCorto(String(r.cliente?.nombre || '').replace(/\(.*\)/, '').trim());
+  return `Hola ${n}, le saluda ${tecnico()} de SEID. Le recuerdo que el mantenimiento de su aire acondicionado corresponde el ${fmt.fecha(r.proximoMantenimiento)}. ¿Coordinamos una visita?`;
 }
 
-function viewCotizar() {
-  if (!quoteDraft) quoteDraft = emptyQuote();
-  const q = quoteDraft;
-  const math = quoteMath(q);
-  const groups = [
-    ['equipo', 'Equipos (lista de proveedor, ejemplo)'],
-    ['instalacion', 'Instalación'],
-    ['extra', 'Extras']
-  ];
-  return shell(`
-    <h1 class="page-title">Cotización de aires</h1>
-    <p class="note">Vista previa de la fase 3. Los precios son <strong>ficticios</strong>, para mostrar cómo se armaría una cotización con la lista del proveedor y un margen.</p>
-    <div class="field">
-      <label for="q-cliente">Cliente (opcional)</label>
-      <select id="q-cliente">
-        <option value="">Sin cliente / escribir después</option>
-        ${state.clientes.map((c) => `<option value="${c.id}" ${q.clienteId === c.id ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}
-      </select>
-    </div>
-    ${groups.map(([tipo, label]) => `
-      <div class="section-label"><span>${label}</span></div>
-      ${db.CATALOGO.filter((i) => i.tipo === tipo).map((item) => {
-        const on = q.items.some((x) => x.id === item.id);
-        return `<button type="button" class="toggle-row ${on ? 'is-on' : ''}" data-cat="${item.id}" aria-pressed="${on}">
-          <span>${esc(item.nombre)}<br><span class="small muted">${esc(item.detalle || '')}</span></span>
-          <strong style="white-space:nowrap">${formatBs(item.precio)}</strong>
-        </button>`;
-      }).join('')}
-    `).join('')}
-    <div class="field" style="margin-top:1rem">
-      <label for="q-margen">Margen de ganancia: <strong>${q.margen} %</strong></label>
-      <input id="q-margen" type="range" min="0" max="50" step="1" value="${q.margen}">
-    </div>
-    <div class="quote-total">
-      <div class="num">${formatBs(math.total)}</div>
-      <p>Subtotal ${formatBs(math.subtotal)} · Margen ${formatBs(math.margenMonto)}</p>
-    </div>
-    <div class="btn-row">
-      <button class="btn" type="button" data-act="quote-pdf" ${q.items.length ? '' : 'disabled'}>${ICO.pdf} Generar PDF</button>
-      <button class="btn btn--wa" type="button" data-act="quote-wa" ${q.items.length ? '' : 'disabled'}>${ICO.wa} Enviar por WhatsApp</button>
-    </div>
-  `, { tab: 'cotizar' });
+function seg(name, value, options) {
+  return `<div class="seg" role="radiogroup">
+    ${options.map(([v, l]) => `<button type="button" role="radio" aria-checked="${value === v}" class="${value === v ? 'is-on' : ''}" data-seg="${name}" data-val="${esc(v)}">${esc(l)}</button>`).join('')}
+  </div>`;
 }
 
-function buildQuoteRecord() {
-  const q = quoteDraft;
-  const math = quoteMath(q);
-  const n = (state.cotizaciones?.length || 0) + 1;
-  const client = db.getClient(state, q.clienteId);
-  return {
-    id: db.uid('q'),
-    numero: 'COT-2026-' + String(n).padStart(3, '0'),
-    fecha: db.todayISO(),
-    clienteId: q.clienteId,
-    clienteNombre: client ? client.nombre : q.clienteNombre,
-    items: q.items.map((i) => ({ ...i })),
-    margen: Number(q.margen) || 0,
-    ...math
-  };
+/* ---------- pantallas de acceso ---------- */
+
+function viewBienvenida() {
+  return `<div class="welcome">
+    <img class="welcome__logo" src="img/logo.png" width="559" height="210" alt="SEID, Servicios de Electricidad Industrial y Domiciliaria">
+    <h1>Bienvenido a su panel de trabajo</h1>
+    <p class="lead">Registre trabajos y mantenimientos, agregue notas, firme con el cliente y envíe el informe en PDF por WhatsApp.</p>
+    <form id="form-bienvenida" class="card stack" novalidate>
+      <div class="field">
+        <label for="w-nombre">Su nombre</label>
+        <input type="text" id="w-nombre" name="nombre" autocomplete="name" value="${esc(tecnico())}" required>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="w-pin">PIN de 4 números</label>
+          <input id="w-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password" required>
+        </div>
+        <div class="field">
+          <label for="w-pin2">Repita el PIN</label>
+          <input id="w-pin2" name="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password" required>
+        </div>
+      </div>
+      <p class="hint">El PIN protege la app si presta el teléfono. Se pide al abrirla después de 15 minutos sin uso.</p>
+      ${welcomeErr ? `<p class="error" role="alert">${esc(welcomeErr)}</p>` : ''}
+      <button class="btn btn--block btn--lg" type="submit" name="modo" value="vacio">Empezar a usar</button>
+      <button class="btn btn--ghost btn--block" type="submit" name="modo" value="ejemplo">Ver primero con datos de ejemplo</button>
+    </form>
+    <p class="hint center">Sus datos se guardan en este teléfono y funcionan sin internet.</p>
+  </div>`;
 }
 
-function viewMenuSheet() {
-  return `<div class="menu-sheet" data-act="close-sheet" role="dialog" aria-label="Opciones">
-    <div class="menu-sheet__panel" data-stop="1">
-      <h2>Opciones</h2>
-      ${badge()}
-      <button type="button" class="menu-item" data-act="reset">${ICO.wrench} Restablecer demo</button>
-      <button type="button" class="menu-item" data-act="logout">${ICO.user} Cerrar sesión</button>
-      <button type="button" class="menu-item" data-act="close-sheet">Cerrar</button>
-      <p class="small muted" style="margin:.8rem 0 0">Al restablecer se vuelven a cargar los datos de ejemplo y se pierden los cambios de esta demostración.</p>
+function viewBloqueo() {
+  const blocked = Date.now() < pinBlockedUntil;
+  return `<div class="lock">
+    <img class="lock__logo" src="img/logo-header.png" width="545" height="206" alt="SEID">
+    <h1>Ingrese su PIN</h1>
+    <div class="pin-dots ${pinFails && !pinBuffer ? 'is-error' : ''}" role="img" aria-label="${pinBuffer.length} de 4 números">
+      ${[0, 1, 2, 3].map((i) => `<i class="${i < pinBuffer.length ? 'is-on' : ''}"></i>`).join('')}
+    </div>
+    <p class="lock__msg" role="status">${blocked ? 'Demasiados intentos. Espere 30 segundos.' : pinFails ? 'PIN incorrecto. Intente de nuevo.' : '&nbsp;'}</p>
+    <div class="keypad">
+      ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-key="${n}" ${blocked ? 'disabled' : ''}>${n}</button>`).join('')}
+      <button type="button" data-act="pin-olvide" class="keypad__text">Olvidé</button>
+      <button type="button" data-key="0" ${blocked ? 'disabled' : ''}>0</button>
+      <button type="button" data-key="del" aria-label="Borrar" class="keypad__text">${ICO.chevL}</button>
     </div>
   </div>`;
 }
 
-function bindSignature(canvas, existing) {
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const ratio = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = Math.max(320, Math.floor(rect.width * ratio));
-  canvas.height = Math.max(140, Math.floor(rect.height * ratio));
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  ctx.lineWidth = 2.4;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#12202e';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, rect.width, rect.height);
-  if (existing) {
-    const img = new Image();
-    img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-    img.src = existing;
-    canvas.dataset.dirty = '1';
+/* "Usar sin conexión por ahora": deja trabajar en este teléfono y vuelve a pedir el ingreso la próxima vez. */
+function loginLuego() { try { return sessionStorage.getItem('seid-login-luego') === '1'; } catch { return false; } }
+
+function viewLogin() {
+  return `<div class="welcome">
+    <img class="welcome__logo" src="img/logo.png" width="559" height="210" alt="SEID">
+    <h1>Entrar</h1>
+    <p class="lead">${store.meta('setupDone') ? 'Vuelva a entrar para seguir guardando en la nube. Sus registros siguen en este teléfono.' : 'Entre con su cuenta de SEID para guardar los registros también en la nube.'}</p>
+    <form id="form-login" class="card stack">
+      <div class="field"><label for="l-email">Correo</label><input id="l-email" name="email" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="l-pass">Contraseña</label><input id="l-pass" name="password" type="password" autocomplete="current-password" required></div>
+      <button class="btn btn--block btn--lg" type="submit">Entrar</button>
+    </form>
+    <button type="button" class="btn btn--ghost btn--block" data-act="login-luego">Usar sin conexión por ahora</button>
+  </div>`;
+}
+
+/* ---------- inicio ---------- */
+
+function viewInicio() {
+  const regs = rec.registros();
+  const abiertos = regs.filter((r) => !r.bloqueado && r.estado !== 'terminado').sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+  const porFirmar = regs.filter((r) => !r.bloqueado && r.estado === 'terminado');
+  const avisos = rec.recordatorios({ dentroDeDias: 15 });
+  const mes = rec.todayISO().slice(0, 7);
+  const delMes = regs.filter((r) => r.fechaInicio.slice(0, 7) === mes);
+  const terminadoMes = delMes.filter((r) => r.estado === 'terminado').reduce((s, r) => s + (rec.totalRegistro(r) || 0), 0);
+  const demo = sample.hayEjemplo();
+  const lastBackup = store.meta('lastBackupAt');
+  const needBackup = regs.some((r) => !r.demo) && (!lastBackup || Date.now() - new Date(lastBackup) > 7 * 86400000);
+
+  const avisosHtml = avisos.length ? `<section class="section">
+      <h2 class="section__title">Mantenimientos por hacer <span class="count">${avisos.length}</span></h2>
+      <div class="stack-sm">${avisos.map(avisoCard).join('')}</div>
+    </section>` : '';
+
+  const abiertosHtml = `<section class="section">
+      <h2 class="section__title">Trabajos abiertos ${abiertos.length ? `<span class="count">${abiertos.length}</span>` : ''}</h2>
+      ${abiertos.length ? `<div class="stack-sm">${abiertos.slice(0, 6).map((r) => registroCard(r)).join('')}</div>
+        ${abiertos.length > 6 ? '<a class="link-more" href="#/historial">Ver todos en el historial</a>' : ''}`
+        : emptyState('check', 'No hay trabajos abiertos', 'Cuando registre un trabajo nuevo, aparecerá aquí hasta que lo cierre con las firmas.')}
+    </section>`;
+
+  const firmarHtml = porFirmar.length ? `<section class="section">
+      <h2 class="section__title">Terminados, falta firmar <span class="count">${porFirmar.length}</span></h2>
+      <div class="stack-sm">${porFirmar.map((r) => registroCard(r)).join('')}</div>
+    </section>` : '';
+
+  return screen(`
+    ${demo ? `<div class="banner">
+        <p><strong>Está viendo datos de ejemplo.</strong> Cuando quiera empezar con sus propios clientes, bórrelos.</p>
+        <button class="btn btn--sm" type="button" data-act="empezar">Empezar a usar</button>
+      </div>` : ''}
+    ${needBackup ? `<div class="banner banner--quiet">
+        <p><strong>Haga una copia de respaldo.</strong> ${lastBackup ? `La última fue el ${esc(fmt.fecha(lastBackup.slice(0, 10)))}.` : 'Todavía no tiene ninguna.'} Así no pierde nada si cambia de teléfono.</p>
+        <button class="btn btn--ghost btn--sm" type="button" data-act="backup">Respaldar ahora</button>
+      </div>` : ''}
+    <p class="kicker">${saludo()}</p>
+    <h1 class="title">${esc(nombreCorto(tecnico()))}</h1>
+    <div class="quick">
+      <a class="quick__main" href="#/nuevo">${ICO.plus}<span><strong>Nuevo trabajo</strong><small>Instalación, electricidad, cámaras…</small></span></a>
+      <a class="quick__alt" href="#/nuevo/mantenimiento-aire">${ICO.wrench}<span><strong>Mantenimiento de aire</strong><small>Con lista de verificación</small></span></a>
+    </div>
+    ${installCard()}
+    ${avisosHtml}
+    ${firmarHtml}
+    ${abiertosHtml}
+    <section class="section">
+      <h2 class="section__title">Este mes</h2>
+      <div class="stats">
+        <div class="stat"><span class="stat__num">${delMes.length}</span><span class="stat__lbl">Registros</span></div>
+        <div class="stat"><span class="stat__num">${esc(fmt.bs(terminadoMes))}</span><span class="stat__lbl">En trabajos terminados</span></div>
+      </div>
+    </section>
+  `, { tab: 'inicio', brand: true, headerRight: syncBadge() });
+}
+
+function syncBadge() {
+  if (!api.enabled()) return '';
+  return `<span class="sync ${navigator.onLine ? '' : 'is-off'}" title="Sincronización">${ICO.cloud}</span>`;
+}
+
+function avisoCard({ registro: r, dias }) {
+  const cls = dias < 0 ? 'aviso aviso--late' : 'aviso';
+  return `<article class="${cls}">
+    <a class="aviso__main" href="#/registro/${r.id}">
+      <span class="aviso__when">${esc(fmt.diasTexto(dias))}</span>
+      <span class="aviso__title">${esc(r.cliente?.nombre)}</span>
+      <span class="aviso__sub">${esc(r.equipo?.ubicacion ? `${r.equipo.tipo || 'Aire'} · ${r.equipo.ubicacion}` : cat.servicio(r.servicio).corto)} · ${esc(fmt.fecha(r.proximoMantenimiento, { corta: true }))}</span>
+    </a>
+    <div class="aviso__actions">
+      ${waIcon(r.cliente?.telefono, textoRecordatorio(r), 'Avisar')}
+      <a class="btn btn--ghost btn--sm" href="#/nuevo/mantenimiento-aire?seguimiento=${r.id}">Registrar</a>
+      <button class="icon-btn icon-btn--sm" type="button" data-descartar="${r.id}" aria-label="Descartar recordatorio de ${esc(r.cliente?.nombre)}">${ICO.close}</button>
+    </div>
+  </article>`;
+}
+
+function installCard() {
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) return '';
+  if (store.meta('installHidden')) return '';
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (!installPrompt && !ios) return '';
+  return `<div class="banner banner--quiet">
+    <p><strong>Instale la app en su teléfono.</strong> ${ios ? 'Toque Compartir y luego «Agregar a inicio».' : 'Queda como un ícono y funciona sin internet.'}</p>
+    <div class="row-gap">
+      ${installPrompt ? '<button class="btn btn--sm" type="button" data-act="install">Instalar</button>' : ''}
+      <button class="btn btn--ghost btn--sm" type="button" data-act="install-hide">Ahora no</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- nuevo: elegir servicio ---------- */
+
+function viewNuevo(q = {}) {
+  const grupos = [...new Set(cat.SERVICIOS.map((s) => s.grupo))];
+  const qs = q.cliente ? `?cliente=${encodeURIComponent(q.cliente)}` : '';
+  const c = q.cliente ? rec.cliente(q.cliente) : null;
+  return screen(`
+    <h1 class="title">¿Qué va a registrar?</h1>
+    <p class="lead">${c ? `Para ${esc(c.nombre)}. ` : ''}Elija el servicio. Después podrá agregar notas e imprevistos.</p>
+    ${draft && draft.servicio && !c ? `<a class="banner banner--quiet banner--link" href="#/nuevo/${esc(draft.servicio)}">
+        <p><strong>Tiene un registro sin guardar</strong> de ${esc(cat.servicio(draft.servicio).corto)}${draft.nombre ? ` para ${esc(draft.nombre)}` : ''}. Toque para seguir.</p>${ICO.chev}</a>` : ''}
+    ${grupos.map((g) => `<section class="section">
+      <h2 class="section__title">${esc(g)}</h2>
+      <div class="svc-grid">
+        ${cat.SERVICIOS.filter((s) => s.grupo === g).map((s) => `<a class="svc" href="#/nuevo/${s.key}${qs}">
+          <span class="svc__icon">${iconoServicio(s.key)}</span><span class="svc__label">${esc(s.label)}</span>
+        </a>`).join('')}
+      </div>
+    </section>`).join('')}
+  `, { tab: 'nuevo', title: 'Nuevo registro' });
+}
+
+/* ---------- nuevo: formulario ---------- */
+
+function newDraft(servicio, q = {}) {
+  const prev = q.seguimiento ? rec.registro(q.seguimiento) : null;
+  const c = q.cliente ? rec.cliente(q.cliente) : prev ? rec.cliente(prev.clienteId) : null;
+  const s = cat.servicio(servicio);
+  const d = {
+    servicio,
+    clienteId: c?.id || '',
+    nombre: c?.nombre || '',
+    telefono: c?.telefono ? c.telefono.replace(/^591/, '') : '',
+    ubicacion: prev?.ubicacion || '',
+    fechaInicio: draftDate || rec.todayISO(),
+    teValor: s.aire === 'mantenimiento' ? '2' : '',
+    teUnidad: 'horas',
+    precio: '',
+    precioManual: false,
+    descripcion: '',
+    estado: s.aire === 'mantenimiento' ? 'en-curso' : 'pendiente',
+    equipo: prev?.equipo ? { ...prev.equipo } : { tipo: '', capacidad: '', marca: '', modelo: '', ubicacion: '' },
+    tier: '',
+    extras: {},
+    checklist: {},
+    seguimientoDe: prev?.id || ''
+  };
+  draftDate = '';
+  if (prev?.equipo?.capacidad && s.aire) {
+    const t = tiersFor(d).find((x) => x.label === prev.equipo.capacidad);
+    if (t) d.tier = t.key;
   }
-  let drawing = false;
-  const pos = (ev) => {
-    const r = canvas.getBoundingClientRect();
-    const t = ev.touches ? ev.touches[0] : ev;
-    return { x: t.clientX - r.left, y: t.clientY - r.top };
-  };
-  const start = (ev) => {
-    ev.preventDefault();
-    drawing = true;
-    const p = pos(ev);
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    canvas.dataset.dirty = '1';
-  };
-  const move = (ev) => {
-    if (!drawing) return;
-    ev.preventDefault();
-    const p = pos(ev);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-  };
-  const end = () => { drawing = false; };
-  canvas.addEventListener('mousedown', start);
-  canvas.addEventListener('mousemove', move);
-  window.addEventListener('mouseup', end);
-  canvas.addEventListener('touchstart', start, { passive: false });
-  canvas.addEventListener('touchmove', move, { passive: false });
-  canvas.addEventListener('touchend', end);
+  applyPrice(d);
+  return d;
 }
 
-async function compressImage(file) {
-  const img = await new Promise((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = reject;
-    i.src = URL.createObjectURL(file);
-  });
-  const max = 1280;
-  let w = img.width;
-  let h = img.height;
-  if (Math.max(w, h) > max) {
-    const s = max / Math.max(w, h);
-    w = Math.round(w * s);
-    h = Math.round(h * s);
-  }
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  c.getContext('2d').drawImage(img, 0, 0, w, h);
-  URL.revokeObjectURL(img.src);
-  return c.toDataURL('image/jpeg', 0.72);
+function tiersFor(d) {
+  const s = cat.servicio(d.servicio);
+  if (s.aire === 'mantenimiento') return cat.PRECIOS_MANTENIMIENTO;
+  if (s.aire === 'instalacion') return cat.PRECIOS_INSTALACION;
+  return [];
 }
 
-async function withPdfReady() {
-  if (window.jspdf && window.jspdf.jsPDF) return;
-  await new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = new URL('./vendor/jspdf.umd.min.js', import.meta.url).href;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('No se pudo cargar jsPDF'));
-    document.head.appendChild(s);
-  });
-}
-
-async function handlePdf(id, share = false) {
-  const m = state.mantenimientos.find((x) => x.id === id);
-  if (!m) return;
-  const client = db.getClient(state, m.clienteId);
-  try {
-    await withPdfReady();
-    const { blob, filename } = await generateMaintenancePdf(m, client);
-    if (share) {
-      const result = await sharePdfOrWhatsApp({
-        blob,
-        filename,
-        title: 'SEID ' + m.ot,
-        text: mantenimientoWhatsAppText(m, client),
-        phone: client?.telefono
-      });
-      if (result === 'whatsapp') toast('Se descargó el PDF y se abrió WhatsApp con el resumen.');
-    } else {
-      downloadBlob(blob, filename);
-      toast('PDF descargado.');
+function priceLines(d) {
+  const s = cat.servicio(d.servicio);
+  const lines = [];
+  const t = tiersFor(d).find((x) => x.key === d.tier);
+  if (t) lines.push({ label: `${s.aire === 'mantenimiento' ? 'Mantenimiento' : 'Instalación'} ${t.label}`, monto: t.monto });
+  if (s.aire) {
+    for (const ex of cat.EXTRAS_AIRE) {
+      const qty = Number(d.extras[ex.key] || 0);
+      if (!qty) continue;
+      lines.push({ label: ex.porMetro ? `${ex.label} (${qty} m)` : ex.label, monto: ex.monto * (ex.porMetro ? qty : 1) });
     }
-  } catch (err) {
-    console.error(err);
-    toast('No se pudo generar el PDF. Revise la conexión e intente de nuevo.');
+  }
+  return lines;
+}
+
+function applyPrice(d) {
+  if (d.precioManual) return;
+  const lines = priceLines(d);
+  if (lines.length) d.precio = String(lines.reduce((a, l) => a + l.monto, 0));
+  else if (cat.servicio(d.servicio).aire) d.precio = '';
+}
+
+function sugerencias(d) {
+  const q = (d.nombre || '').trim().toLowerCase();
+  if (d.clienteId) {
+    const c = rec.cliente(d.clienteId);
+    return c ? `<p class="suggest__chosen">${ICO.check}<span>Cliente guardado${c.telefono ? ` · ${esc(fmt.telefono(c.telefono))}` : ''}</span><button type="button" class="link" data-act="cliente-otro">Cambiar</button></p>` : '';
+  }
+  if (q.length < 2) return '';
+  const qd = q.replace(/\D/g, '');
+  const matches = rec.clientes().filter((c) => c.nombre.toLowerCase().includes(q) || (qd.length >= 3 && (c.telefono || '').includes(qd))).slice(0, 4);
+  if (!matches.length) return '<p class="suggest__new">Cliente nuevo: se guardará al registrar.</p>';
+  return `<p class="suggest__label">¿Es alguno de estos?</p>${matches.map((c) => `<button type="button" class="suggest__item" data-pick-cliente="${c.id}">${ICO.user}<span>${esc(c.nombre)}<small>${esc(fmt.telefono(c.telefono))}</small></span></button>`).join('')}`;
+}
+
+function clienteFields(d) {
+  return `<section class="fsec">
+    <h2 class="fsec__title"><span>1</span>Cliente</h2>
+    <div class="field">
+      <label for="f-nombre">Nombre del cliente</label>
+      <input type="text" id="f-nombre" data-d="nombre" value="${esc(d.nombre)}" autocomplete="off" placeholder="Nombre y apellido o empresa" required>
+      <div id="sugerencias" class="suggest" aria-live="polite">${sugerencias(d)}</div>
+    </div>
+    <div class="field">
+      <label for="f-tel">WhatsApp del cliente <span class="opt">opcional</span></label>
+      <div class="input-prefix"><span>+591</span><input id="f-tel" data-d="telefono" value="${esc(d.telefono)}" type="tel" inputmode="tel" autocomplete="off" placeholder="7xxxxxxx"></div>
+    </div>
+    <div class="field">
+      <label for="f-ubi">Ubicación o referencia <span class="opt">opcional</span></label>
+      <input type="text" id="f-ubi" data-d="ubicacion" value="${esc(d.ubicacion)}" placeholder="Barrio, calle, casa de color…">
+    </div>
+  </section>`;
+}
+
+function aireFields(d) {
+  const s = cat.servicio(d.servicio);
+  if (!s.aire) return '';
+  const tiers = tiersFor(d);
+  return `<section class="fsec">
+    <h2 class="fsec__title"><span>2</span>Equipo y precio</h2>
+    <p class="label">Tipo de equipo</p>
+    <div class="chips">
+      ${cat.TIPOS_EQUIPO.map((t) => `<button type="button" class="chip ${d.equipo.tipo === t ? 'is-on' : ''}" aria-pressed="${d.equipo.tipo === t}" data-eqtipo="${esc(t)}">${esc(t)}</button>`).join('')}
+    </div>
+    <p class="label">Capacidad y precio 2026</p>
+    <div class="tiers">
+      ${tiers.map((t) => `<button type="button" class="tier ${d.tier === t.key ? 'is-on' : ''}" aria-pressed="${d.tier === t.key}" data-tier="${t.key}">
+        <span>${esc(t.label)}</span><strong>${esc(fmt.bs(t.monto))}</strong></button>`).join('')}
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="f-marca">Marca <span class="opt">opcional</span></label><input type="text" id="f-marca" data-d="equipo.marca" value="${esc(d.equipo.marca)}"></div>
+      <div class="field"><label for="f-equbi">Ambiente <span class="opt">opcional</span></label><input type="text" id="f-equbi" data-d="equipo.ubicacion" value="${esc(d.equipo.ubicacion)}" placeholder="Sala, dormitorio…"></div>
+    </div>
+    <details class="extras" ${Object.values(d.extras).some(Boolean) ? 'open' : ''}>
+      <summary>Agregar extras <span class="opt">fuga, tubería, drenaje…</span></summary>
+      ${cat.EXTRAS_AIRE.map((ex) => {
+        const qty = Number(d.extras[ex.key] || 0);
+        if (ex.porMetro) {
+          return `<div class="extra ${qty ? 'is-on' : ''}">
+            <span class="extra__label">${esc(ex.label)}<small>${esc(fmt.bs(ex.monto))} por metro</small></span>
+            <span class="stepper">
+              <button type="button" data-metro="-1" aria-label="Quitar un metro">−</button>
+              <output aria-live="polite">${qty} m</output>
+              <button type="button" data-metro="1" aria-label="Agregar un metro">+</button>
+            </span>
+          </div>`;
+        }
+        return `<button type="button" class="extra ${qty ? 'is-on' : ''}" aria-pressed="${!!qty}" data-extra="${ex.key}">
+          <span class="extra__label">${esc(ex.label)}<small>${esc(fmt.bs(ex.monto))}</small></span>
+          <span class="tick">${ICO.check}</span>
+        </button>`;
+      }).join('')}
+    </details>
+  </section>`;
+}
+
+function checklistFields(d) {
+  if (cat.servicio(d.servicio).aire !== 'mantenimiento') return '';
+  const all = cat.CHECKLIST_AIRE.every((i) => d.checklist[i.key]);
+  return `<section class="fsec">
+    <h2 class="fsec__title"><span>3</span>Servicio realizado</h2>
+    <div class="checks">
+      ${cat.CHECKLIST_AIRE.map((i) => `<button type="button" class="check ${d.checklist[i.key] ? 'is-on' : ''}" aria-pressed="${!!d.checklist[i.key]}" data-check="${i.key}">
+        <span class="tick">${ICO.check}</span><span>${esc(i.label)}</span></button>`).join('')}
+    </div>
+    <button type="button" class="btn btn--ghost btn--block btn--sm" data-act="check-all">${all ? 'Desmarcar todo' : 'Marcar todo como hecho'}</button>
+  </section>`;
+}
+
+function viewForm(servicio, q) {
+  if (!cat.SERVICIOS.some((s) => s.key === servicio)) return viewNoEncontrado();
+  const needNew = !draft || draft.servicio !== servicio
+    || (q.seguimiento && draft.seguimientoDe !== q.seguimiento)
+    || (q.cliente && draft.clienteId !== q.cliente);
+  if (needNew) { draft = newDraft(servicio, q); saveDraft(); }
+  const d = draft;
+  const s = cat.servicio(servicio);
+  const esMant = s.aire === 'mantenimiento';
+  let n = s.aire ? (esMant ? 4 : 3) : 2;
+  const prev = d.seguimientoDe ? rec.registro(d.seguimientoDe) : null;
+  const lines = priceLines(d);
+  return screen(`
+    <div class="form-head">
+      <span class="form-head__icon">${iconoServicio(servicio)}</span>
+      <div><p class="kicker">${esMant ? 'Mantenimiento' : 'Nuevo trabajo'}</p><h1 class="title title--sm">${esc(s.label)}</h1></div>
+    </div>
+    ${prev ? `<p class="note">Seguimiento del registro ${esc(prev.numero)} del ${esc(fmt.fecha(prev.fechaInicio))}.</p>` : ''}
+    <div id="form-registro">
+      ${clienteFields(d)}
+      ${aireFields(d)}
+      ${checklistFields(d)}
+      <section class="fsec">
+        <h2 class="fsec__title"><span>${n++}</span>Fecha y tiempo</h2>
+        <div class="field-row">
+          <div class="field"><label for="f-fecha">Fecha de inicio</label><input id="f-fecha" type="date" data-d="fechaInicio" value="${esc(d.fechaInicio)}" required></div>
+          <div class="field"><label for="f-te">Tiempo estimado</label><input type="text" id="f-te" data-d="teValor" value="${esc(d.teValor)}" inputmode="decimal" placeholder="Ej. 3"></div>
+        </div>
+        ${seg('teUnidad', d.teUnidad, [['horas', 'Horas'], ['dias', 'Días']])}
+      </section>
+      <section class="fsec">
+        <h2 class="fsec__title"><span>${n++}</span>Precio y detalle</h2>
+        ${lines.length ? `<ul class="price-lines">${lines.map((l) => `<li><span>${esc(l.label)}</span><span>${esc(fmt.bs(l.monto))}</span></li>`).join('')}</ul>` : ''}
+        <div class="field">
+          <label for="f-precio">Precio acordado <span class="opt">${s.aire ? 'puede cambiarlo' : 'opcional'}</span></label>
+          <div class="input-prefix"><span>Bs</span><input type="text" id="f-precio" data-d="precio" value="${esc(d.precio)}" inputmode="decimal" placeholder="0"></div>
+          ${d.precioManual && lines.length ? '<button type="button" class="link small" data-act="precio-auto">Volver al precio de la lista</button>' : ''}
+        </div>
+        <div class="field">
+          <label for="f-desc">${esMant ? 'Observaciones' : 'Descripción del trabajo'}</label>
+          <textarea id="f-desc" data-d="descripcion" rows="4" placeholder="${esMant ? 'Estado del equipo, recomendaciones…' : 'Qué se va a hacer, materiales, acuerdos…'}">${esc(d.descripcion)}</textarea>
+        </div>
+        <p class="label">Estado</p>
+        ${seg('estado', d.estado, cat.ESTADOS.map((e) => [e.key, e.label]))}
+      </section>
+    </div>
+  `, {
+    title: esMant ? 'Mantenimiento' : 'Nuevo trabajo',
+    back: '#/nuevo',
+    bar: '<button type="button" class="btn btn--ghost" data-act="draft-cancel">Descartar</button><button type="button" class="btn btn--lg" data-act="draft-save">Guardar</button>'
+  });
+}
+
+function showErrors(errors) {
+  document.querySelectorAll('.field-error').forEach((n) => n.remove());
+  document.querySelectorAll('[aria-invalid]').forEach((n) => { n.removeAttribute('aria-invalid'); n.removeAttribute('aria-describedby'); });
+  for (const [id, msg] of errors) {
+    const input = document.getElementById(id);
+    if (!input) continue;
+    input.setAttribute('aria-invalid', 'true');
+    const p = document.createElement('p');
+    p.className = 'field-error';
+    p.id = `${id}-err`;
+    p.textContent = msg;
+    input.setAttribute('aria-describedby', p.id);
+    input.closest('.field').appendChild(p);
+  }
+  if (errors.length) {
+    const first = document.getElementById(errors[0][0]);
+    first?.focus({ preventScroll: true });
+    first?.scrollIntoView({ block: 'center' });
   }
 }
 
-async function handleQuote(share = false) {
-  if (!quoteDraft || !quoteDraft.items.length) return;
-  const rec = buildQuoteRecord();
-  const client = db.getClient(state, rec.clienteId);
+function num(s) {
+  const v = String(s ?? '').trim().replace(/\s/g, '');
+  if (!v) return '';
+  // 1.060 o 1.060,50 → 1060 / 1060.5 ; 3,5 → 3.5
+  const norm = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(v) ? v.replace(/\./g, '').replace(',', '.') : v.replace(',', '.');
+  return norm;
+}
+
+async function saveRegistro() {
+  const d = draft;
+  const s = cat.servicio(d.servicio);
+  const errors = [];
+  if (!d.nombre.trim()) errors.push(['f-nombre', 'Escriba el nombre del cliente.']);
+  const tel = rec.digits(d.telefono);
+  if (tel && !(tel.length === 8 || (tel.length === 11 && tel.startsWith('591')))) errors.push(['f-tel', 'El WhatsApp debe tener 8 números, por ejemplo 71234567.']);
+  if (!d.fechaInicio) errors.push(['f-fecha', 'Elija la fecha de inicio.']);
+  const te = num(d.teValor);
+  if (te && (Number.isNaN(Number(te)) || Number(te) <= 0)) errors.push(['f-te', 'Escriba solo el número, por ejemplo 3.']);
+  const precio = num(d.precio);
+  if (precio && (Number.isNaN(Number(precio)) || Number(precio) < 0)) errors.push(['f-precio', 'Escriba solo el número, por ejemplo 840.']);
+  showErrors(errors);
+  if (errors.length) return;
+  const tier = tiersFor(d).find((t) => t.key === d.tier);
+  const resumen = `<dl class="summary">
+    <dt>Cliente</dt><dd>${esc(d.nombre)}${tel ? ` · ${esc(fmt.telefono(rec.normPhone(tel)))}` : ''}</dd>
+    <dt>Servicio</dt><dd>${esc(s.label)}${tier ? ` · ${esc(tier.label)}` : ''}</dd>
+    <dt>Inicio</dt><dd>${esc(fmt.fecha(d.fechaInicio))}${te ? ` · ${esc(fmt.tiempo({ valor: te, unidad: d.teUnidad }))}` : ''}</dd>
+    <dt>Precio</dt><dd>${precio ? esc(fmt.bs(Number(precio))) : 'Sin precio'}</dd>
+    <dt>Estado</dt><dd>${esc(cat.estadoLabel(d.estado))}</dd>
+  </dl>
+  <p class="hint">Después de guardar, estos datos ya no se cambian. Si algo cambia, agregue una nota.</p>`;
+  const ok = await confirmDialog({ title: 'Revise antes de guardar', html: resumen, ok: 'Guardar', cancel: 'Corregir' });
+  if (!ok) return;
   try {
-    await withPdfReady();
-    const { blob, filename } = await generateQuotePdf(rec, client);
-    state.cotizaciones = state.cotizaciones || [];
-    state.cotizaciones.push(rec);
-    persist();
-    if (share) {
-      const result = await sharePdfOrWhatsApp({
-        blob,
-        filename,
-        title: rec.numero,
-        text: quoteWhatsAppText(rec, client),
-        phone: client?.telefono
-      });
-      if (result === 'whatsapp') toast('Se descargó el PDF y se abrió WhatsApp con el resumen.');
-    } else {
-      downloadBlob(blob, filename);
-      toast('Cotización en PDF descargada.');
-    }
+    const r = await rec.crearRegistro({
+      servicio: d.servicio,
+      cliente: { id: d.clienteId, nombre: d.nombre.trim(), telefono: tel },
+      ubicacion: d.ubicacion.trim(),
+      fechaInicio: d.fechaInicio,
+      tiempoEstimado: te ? { valor: Number(te), unidad: d.teUnidad } : null,
+      precio: precio ? Number(precio) : null,
+      precioDetalle: priceLines(d),
+      descripcion: d.descripcion.trim(),
+      estado: d.estado,
+      equipo: s.aire ? { ...d.equipo, capacidad: tier ? tier.label : d.equipo.capacidad } : null,
+      checklist: s.aire === 'mantenimiento' ? { ...d.checklist } : null,
+      seguimientoDe: d.seguimientoDe || null
+    });
+    draft = null;
+    saveDraft();
+    store.requestPersist().then((p) => store.setMeta('persisted', p));
+    go(`#/registro/${r.id}`);
+    toast(`Guardado como ${r.numero}`);
+    syncSoon();
   } catch (err) {
-    console.error(err);
-    toast('No se pudo generar el PDF.');
+    alertDialog('No se pudo guardar', err.message || String(err));
   }
 }
+
+/* ---------- detalle ---------- */
+
+function timelineHtml(evs) {
+  return evs.filter((e) => e.tipo !== 'recordatorio-descartado').slice().reverse().map((e) => {
+    let body = '';
+    if (e.tipo === 'creado') body = '<p class="tl__text">Registro creado</p>';
+    else if (e.tipo === 'estado') body = `<p class="tl__text">Estado: ${esc(cat.estadoLabel(e.estadoDe))} → <strong>${esc(cat.estadoLabel(e.estadoA))}</strong></p>`;
+    else if (e.tipo === 'cierre') body = `<p class="tl__text"><strong>Firmado y cerrado.</strong> ${esc(e.texto.replace(/^Firmado por /, 'Firmaron '))}</p>`;
+    else {
+      body = `${e.texto ? `<p class="tl__text">${esc(e.texto)}</p>` : ''}
+        ${e.ajuste ? `<p class="tl__money">${e.ajuste > 0 ? 'Suma al costo' : 'Descuento'}: <strong>${esc(fmt.bs(e.ajuste))}</strong></p>` : ''}
+        ${e.foto ? `<button type="button" class="tl__photo" data-foto="${e.id}" aria-label="Ver foto en grande"><img src="${esc(e.foto)}" alt="Foto de la nota del ${esc(fmt.fechaHora(e.createdAt))}" loading="lazy"></button>` : ''}`;
+    }
+    return `<li class="tl__item tl__item--${e.tipo}"><span class="tl__dot" aria-hidden="true"></span><p class="tl__when">${esc(fmt.fechaHora(e.createdAt))}</p>${body}</li>`;
+  }).join('');
+}
+
+function viewRegistro(id) {
+  const r = rec.registro(id);
+  if (!r) return viewNoEncontrado();
+  const evs = rec.eventosDe(id);
+  const total = rec.totalRegistro(r);
+  const ajustes = rec.ajustesTotal(id);
+  const s = cat.servicio(r.servicio);
+  const kv = (k, v) => (v ? `<div class="kv__row"><dt>${esc(k)}</dt><dd>${v}</dd></div>` : '');
+  const detalle = r.precioDetalle || [];
+  const sumaDetalle = detalle.reduce((a, l) => a + Number(l.monto || 0), 0);
+  const checklist = r.checklist ? `<section class="section">
+      <h2 class="section__title">Servicio realizado</h2>
+      <ul class="checklist-view card">${cat.CHECKLIST_AIRE.map((i) => `<li class="${r.checklist[i.key] ? 'is-on' : ''}"><span class="tick">${r.checklist[i.key] ? ICO.check : ''}</span><span>${esc(i.label)}${r.checklist[i.key] ? '' : ' <em>no realizado</em>'}</span></li>`).join('')}</ul>
+    </section>` : '';
+  const firmas = r.cierre ? `<section class="section">
+      <h2 class="section__title">Firmas</h2>
+      <div class="sigs">
+        ${[['Técnico', r.cierre.firmaTecnico], ['Cliente', r.cierre.firmaCliente]].map(([rol, f]) => `<figure class="sig">
+          <img src="${esc(f.png)}" alt="Firma de ${esc(f.nombre)}">
+          <figcaption><strong>${esc(f.nombre)}</strong>${esc(rol)}${f.ci ? ` · CI ${esc(f.ci)}` : ''}<br>${esc(fmt.fechaHora(f.fecha))}</figcaption>
+        </figure>`).join('')}
+      </div>
+    </section>` : '';
+
+  const bar = r.bloqueado
+    ? `<button type="button" class="btn btn--ghost" data-pdf="${r.id}" data-mode="download">${ICO.download}Descargar</button><button type="button" class="btn btn--lg" data-pdf="${r.id}" data-mode="share">${ICO.share}Enviar PDF</button>`
+    : `<a class="btn btn--ghost" href="#/registro/${r.id}/nota">${ICO.note}Nota</a><a class="btn btn--lg" href="#/registro/${r.id}/cerrar">${ICO.pen}Terminar y firmar</a>`;
+
+  return screen(`
+    <div class="detail-head">
+      <span class="form-head__icon">${iconoServicio(r.servicio)}</span>
+      <div class="detail-head__text">
+        <p class="kicker">${esc(r.numero)}</p>
+        <h1 class="title title--sm">${esc(s.label)}</h1>
+        <p class="detail-head__client"><a href="#/cliente/${r.clienteId}">${esc(r.cliente?.nombre)}</a></p>
+      </div>
+      ${estadoPill(r)}
+    </div>
+    ${r.demo ? '<p class="note">Registro de ejemplo.</p>' : ''}
+    <div class="row-gap">
+      ${waIcon(r.cliente?.telefono, `Hola, le escribe ${tecnico()} de SEID.`, 'WhatsApp')}
+      ${!r.bloqueado ? `<button type="button" class="btn btn--ghost btn--sm" data-pdf="${r.id}" data-mode="share">${ICO.pdf}Ver PDF</button>` : ''}
+    </div>
+    ${!r.bloqueado ? `<section class="section">
+        <h2 class="section__title">Estado</h2>
+        ${seg('estado-reg', r.estado, cat.ESTADOS.map((e) => [e.key, e.label]))}
+      </section>` : `<p class="locked">${ICO.lock}<span>Firmado y cerrado el ${esc(fmt.fechaHora(r.cierre?.cerradoAt))}. Ya no se puede modificar.</span></p>`}
+    <section class="section">
+      <h2 class="section__title">Datos del registro</h2>
+      <dl class="kv card">
+        ${kv('Cliente', `${esc(r.cliente?.nombre)}${r.cliente?.telefono ? `<br><span class="muted">${esc(fmt.telefono(r.cliente.telefono))}</span>` : ''}`)}
+        ${kv('Ubicación', esc(r.ubicacion))}
+        ${kv('Inicio', esc(fmt.fecha(r.fechaInicio, { dia: true })))}
+        ${kv('Tiempo estimado', r.tiempoEstimado ? esc(fmt.tiempo(r.tiempoEstimado)) : '')}
+        ${r.cierre ? kv('Cierre', esc(fmt.fecha(r.cierre.fechaFin, { dia: true }))) : ''}
+        ${r.cierre ? kv('Tiempo real', esc(fmt.tiempo(r.cierre.tiempoReal))) : ''}
+        ${r.equipo ? kv('Equipo', esc([r.equipo.tipo, r.equipo.capacidad, r.equipo.marca, r.equipo.ubicacion].filter(Boolean).join(' · ') || '—')) : ''}
+        ${kv(r.tipo === 'mantenimiento' ? 'Observaciones' : 'Descripción', esc(r.descripcion))}
+        ${r.proximoMantenimiento ? kv('Próximo mantenimiento', esc(fmt.fecha(r.proximoMantenimiento))) : ''}
+      </dl>
+      ${!r.bloqueado ? '<p class="hint">Los datos originales no se cambian. Si hay un imprevisto, agregue una nota.</p>' : ''}
+    </section>
+    ${checklist}
+    ${total != null ? `<section class="section">
+        <h2 class="section__title">Precio</h2>
+        <div class="card money">
+          ${detalle.map((l) => `<div><span>${esc(l.label)}</span><span>${esc(fmt.bs(l.monto))}</span></div>`).join('')}
+          ${r.precio != null && !detalle.length ? `<div><span>Precio acordado</span><span>${esc(fmt.bs(r.precio))}</span></div>` : ''}
+          ${r.precio != null && detalle.length && Math.round(sumaDetalle) !== Math.round(r.precio) ? `<div><span>Ajuste al precio acordado</span><span>${esc(fmt.bs(r.precio - sumaDetalle))}</span></div>` : ''}
+          ${ajustes ? `<div><span>Cambios en notas</span><span>${esc(fmt.bs(ajustes))}</span></div>` : ''}
+          <div class="money__total"><span>Total</span><span>${esc(fmt.bs(total))}</span></div>
+        </div>
+      </section>` : ''}
+    <section class="section">
+      <h2 class="section__title">Notas e historial</h2>
+      ${!r.bloqueado ? `<a class="add-note" href="#/registro/${r.id}/nota">${ICO.plus}<span>Agregar nota o imprevisto</span></a>` : ''}
+      <ol class="timeline">${timelineHtml(evs)}</ol>
+    </section>
+    ${firmas}
+  `, { title: r.numero, back: '#/historial', bar });
+}
+
+/* ---------- nota ---------- */
+
+function viewNota(id) {
+  const r = rec.registro(id);
+  if (!r) return viewNoEncontrado();
+  if (r.bloqueado) return viewRegistro(id);
+  if (!nota || nota.id !== id) nota = { id, texto: '', foto: null, signo: '+', monto: '' };
+  return screen(`
+    <p class="kicker">${esc(r.numero)} · ${esc(r.cliente?.nombre)}</p>
+    <h1 class="title title--sm">Nueva nota</h1>
+    <p class="lead">Anote lo que pasó: un imprevisto, un material extra, un cambio de fecha.</p>
+    <div class="field">
+      <label for="n-texto">¿Qué pasó?</label>
+      <textarea id="n-texto" data-n="texto" rows="5" placeholder="Ej. Se encontró una fuga en la tubería; se cambió 1 m.">${esc(nota.texto)}</textarea>
+    </div>
+    <div class="field">
+      <p class="label">Foto <span class="opt">opcional</span></p>
+      ${nota.foto ? `<div class="photo-prev"><img src="${esc(nota.foto)}" alt="Foto seleccionada"><button type="button" class="btn btn--ghost btn--sm" data-act="nota-foto-quitar">${ICO.trash}Quitar foto</button></div>`
+        : `<label class="photo-btn" for="n-foto">${ICO.camera}<span>Tomar o elegir foto</span></label>`}
+      <input id="n-foto" class="visually-hidden" type="file" accept="image/*" capture="environment" data-act="nota-foto">
+    </div>
+    <div class="field">
+      <p class="label">Cambio en el costo <span class="opt">opcional</span></p>
+      ${seg('signo', nota.signo, [['+', 'Suma al costo'], ['-', 'Descuento']])}
+      <label class="visually-hidden" for="n-monto">Monto en bolivianos</label>
+      <div class="input-prefix gap-top"><span>Bs</span><input type="text" id="n-monto" data-n="monto" inputmode="decimal" value="${esc(nota.monto)}" placeholder="0"></div>
+    </div>
+    <p class="hint">La nota queda con fecha y hora, y no se puede borrar.</p>
+  `, {
+    title: 'Nota',
+    back: `#/registro/${id}`,
+    bar: `<a class="btn btn--ghost" href="#/registro/${id}">Cancelar</a><button type="button" class="btn btn--lg" data-act="nota-save">Guardar nota</button>`
+  });
+}
+
+async function saveNota() {
+  const monto = num(nota.monto);
+  if (monto && (Number.isNaN(Number(monto)) || Number(monto) <= 0)) {
+    alertDialog('Revise el monto', 'Escriba el monto en bolivianos, solo números.');
+    return;
+  }
+  const ajuste = monto ? Number(monto) * (nota.signo === '-' ? -1 : 1) : null;
+  if (!nota.texto.trim() && !nota.foto && !ajuste) {
+    alertDialog('Nota vacía', 'Escriba qué pasó, agregue una foto o un cambio en el costo.');
+    return;
+  }
+  try {
+    await rec.agregarNota(nota.id, { texto: nota.texto.trim(), foto: nota.foto, ajuste });
+    const id = nota.id;
+    nota = null;
+    go(`#/registro/${id}`);
+    toast('Nota guardada');
+    syncSoon();
+  } catch (err) {
+    alertDialog('No se pudo guardar', err.message);
+  }
+}
+
+/* ---------- cerrar con firmas ---------- */
+
+function padHtml(key, label) {
+  return `<div class="pad" data-pad-wrap="${key}">
+    <canvas class="pad__canvas" data-pad="${key}" role="img" aria-label="${esc(label)}: firme con el dedo dentro del recuadro"></canvas>
+    <span class="pad__line" aria-hidden="true"></span>
+    <span class="pad__hint" aria-hidden="true">Firme aquí con el dedo</span>
+    <button type="button" class="pad__clear" data-pad-clear="${key}">Borrar</button>
+  </div>`;
+}
+
+function viewCerrar(id) {
+  const r = rec.registro(id);
+  if (!r) return viewNoEncontrado();
+  if (r.bloqueado) return viewRegistro(id);
+  if (!cierre || cierre.id !== id) {
+    cierre = { id, fechaFin: rec.todayISO(), trValor: '', trUnidad: r.tiempoEstimado?.unidad || 'horas', tecNombre: tecnico(), cliNombre: (r.cliente?.nombre || '').replace(/\s*\(ejemplo\)/, ''), cliCI: '' };
+  }
+  const c = cierre;
+  return screen(`
+    <p class="kicker">${esc(r.numero)} · ${esc(cat.servicio(r.servicio).corto)}</p>
+    <h1 class="title title--sm">Terminar y firmar</h1>
+    <div class="field-row">
+      <div class="field"><label for="c-fecha">Fecha de cierre</label><input id="c-fecha" type="date" data-c="fechaFin" value="${esc(c.fechaFin)}"></div>
+      <div class="field"><label for="c-tr">Tiempo real</label><input type="text" id="c-tr" data-c="trValor" inputmode="decimal" value="${esc(c.trValor)}" placeholder="${r.tiempoEstimado ? `Estimado ${esc(String(r.tiempoEstimado.valor))}` : 'Ej. 4'}"></div>
+    </div>
+    ${seg('trUnidad', c.trUnidad, [['horas', 'Horas'], ['dias', 'Días']])}
+    <section class="fsec">
+      <h2 class="fsec__title"><span>1</span>Firma del técnico</h2>
+      <div class="field"><label for="c-tec">Nombre</label><input type="text" id="c-tec" data-c="tecNombre" value="${esc(c.tecNombre)}"></div>
+      ${padHtml('tec', 'Firma del técnico')}
+    </section>
+    <section class="fsec">
+      <h2 class="fsec__title"><span>2</span>Firma del cliente</h2>
+      <div class="field-row">
+        <div class="field"><label for="c-cli">Nombre de quien firma</label><input type="text" id="c-cli" data-c="cliNombre" value="${esc(c.cliNombre)}"></div>
+        <div class="field field--sm"><label for="c-ci">CI <span class="opt">opcional</span></label><input type="text" id="c-ci" data-c="cliCI" value="${esc(c.cliCI)}" inputmode="numeric"></div>
+      </div>
+      ${padHtml('cli', 'Firma del cliente')}
+    </section>
+    <p class="note note--icon">${ICO.lock}<span>Al firmar, el registro queda cerrado y ya no se puede modificar.</span></p>
+  `, {
+    title: 'Firmas',
+    back: `#/registro/${id}`,
+    bar: `<a class="btn btn--ghost" href="#/registro/${id}">Cancelar</a><button type="button" class="btn btn--lg" data-act="cerrar-save">Firmar y cerrar</button>`
+  });
+}
+
+function mountPads() {
+  for (const p of Object.values(pads)) p.destroy();
+  pads = {};
+  document.querySelectorAll('[data-pad]').forEach((canvas) => {
+    const key = canvas.getAttribute('data-pad');
+    const wrap = canvas.closest('.pad');
+    pads[key] = createSignaturePad(canvas, { onChange: (n) => wrap.classList.toggle('is-signed', n > 0) });
+  });
+}
+
+async function saveCierre() {
+  const c = cierre;
+  const r = rec.registro(c.id);
+  const problems = [];
+  if (!c.tecNombre.trim()) problems.push('el nombre del técnico');
+  if (!pads.tec || pads.tec.isEmpty()) problems.push('la firma del técnico');
+  if (!c.cliNombre.trim()) problems.push('el nombre del cliente');
+  if (!pads.cli || pads.cli.isEmpty()) problems.push('la firma del cliente');
+  const tr = num(c.trValor);
+  if (tr && (Number.isNaN(Number(tr)) || Number(tr) <= 0)) problems.push('un tiempo real válido (solo el número)');
+  if (problems.length) {
+    alertDialog('Falta completar', `Falta ${problems.join(', ')}.`);
+    return;
+  }
+  const ok = await confirmDialog({
+    title: '¿Cerrar el registro?',
+    body: `Se guardarán las dos firmas y ${r.numero} quedará cerrado. Después ya no se podrán agregar notas ni cambiar el estado.`,
+    ok: 'Firmar y cerrar',
+    cancel: 'Revisar'
+  });
+  if (!ok) return;
+  try {
+    await rec.cerrarRegistro(c.id, {
+      fechaFin: c.fechaFin,
+      tiempoReal: tr ? { valor: Number(tr), unidad: c.trUnidad } : null,
+      firmaTecnico: { nombre: c.tecNombre.trim(), png: pads.tec.toPNG() },
+      firmaCliente: { nombre: c.cliNombre.trim(), ci: c.cliCI.trim(), png: pads.cli.toPNG() }
+    });
+    const id = c.id;
+    cierre = null;
+    go(`#/registro/${id}`);
+    toast('Registro firmado y cerrado', { action: 'Enviar PDF', onAction: () => doPdf(id, 'share') });
+    syncSoon();
+  } catch (err) {
+    alertDialog('No se pudo cerrar', err.message);
+  }
+}
+
+/* ---------- PDF ---------- */
+
+async function doPdf(id, mode) {
+  const r = rec.registro(id);
+  if (!r) return;
+  toast('Preparando el PDF…');
+  try {
+    const out = await generarPdf(r, rec.eventosDe(id), { total: rec.totalRegistro(r) });
+    if (mode === 'download') { downloadBlob(out.blob, out.filename); toast('PDF descargado'); return; }
+    const res = await shareFile(out.blob, out.filename, {
+      title: `${r.numero} · SEID`,
+      text: `Informe ${r.numero} de ${r.servicioLabel} · SEID, ${tecnico()}`,
+      type: 'application/pdf'
+    });
+    if (res === 'downloaded') toast('PDF descargado. Puede adjuntarlo en WhatsApp.');
+    else if (res === 'shared') toast('PDF listo');
+  } catch (err) {
+    alertDialog('No se pudo crear el PDF', err.message || String(err));
+  }
+}
+
+/* ---------- historial ---------- */
+
+function filtrar() {
+  const q = hf.q.trim().toLowerCase();
+  const list = rec.registros().filter((r) => {
+    if (hf.tipo === 'mantenimiento' && r.tipo !== 'mantenimiento') return false;
+    if (hf.tipo === 'trabajo' && r.tipo !== 'trabajo') return false;
+    if (hf.servicio && r.servicio !== hf.servicio) return false;
+    if (hf.estado === 'firmado' && !r.bloqueado) return false;
+    if (hf.estado && hf.estado !== 'firmado' && (r.estado !== hf.estado || r.bloqueado)) return false;
+    if (hf.desde && r.fechaInicio < hf.desde) return false;
+    if (hf.hasta && r.fechaInicio > hf.hasta) return false;
+    if (q) {
+      const blob = `${r.cliente?.nombre} ${r.cliente?.telefono} ${r.servicioLabel} ${r.numero} ${r.ubicacion} ${r.descripcion}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+  const by = {
+    recientes: (a, b) => b.fechaInicio.localeCompare(a.fechaInicio) || String(b.createdAt).localeCompare(String(a.createdAt)),
+    antiguos: (a, b) => a.fechaInicio.localeCompare(b.fechaInicio) || String(a.createdAt).localeCompare(String(b.createdAt)),
+    cliente: (a, b) => (a.cliente?.nombre || '').localeCompare(b.cliente?.nombre || '', 'es'),
+    precio: (a, b) => (rec.totalRegistro(b) || 0) - (rec.totalRegistro(a) || 0)
+  };
+  return list.sort(by[hf.orden] || by.recientes);
+}
+
+function filtrosActivos() {
+  return ['servicio', 'estado', 'desde', 'hasta'].filter((k) => hf[k]).length + (hf.orden !== 'recientes' ? 1 : 0);
+}
+
+function resultadosHtml() {
+  if (!rec.registros().length) {
+    return emptyState('list', 'Todavía no hay registros', 'Aquí verá todos sus trabajos y mantenimientos, con su historial completo.', '<a class="btn" href="#/nuevo">Registrar el primero</a>');
+  }
+  const list = filtrar();
+  if (!list.length) return emptyState('search', 'Sin resultados', 'Pruebe con otra palabra o quite los filtros.', '<button class="btn btn--ghost" type="button" data-act="hf-clear">Quitar filtros</button>');
+  let out = `<p class="results-count" role="status">${list.length} ${list.length === 1 ? 'registro' : 'registros'}</p>`;
+  if (hf.orden === 'recientes' || hf.orden === 'antiguos') {
+    let mes = '';
+    for (const r of list) {
+      const m = r.fechaInicio.slice(0, 7);
+      if (m !== mes) {
+        if (mes) out += '</div>';
+        mes = m;
+        const [y, mm] = m.split('-').map(Number);
+        out += `<h3 class="month">${esc(fmt.mesAnio(new Date(y, mm - 1, 1)))}</h3><div class="stack-sm">`;
+      }
+      out += registroCard(r);
+    }
+    out += '</div>';
+  } else {
+    out += `<div class="stack-sm">${list.map((r) => registroCard(r)).join('')}</div>`;
+  }
+  return out;
+}
+
+function clientesHtml() {
+  const q = clienteQ.trim().toLowerCase();
+  if (!rec.clientes().length) return emptyState('users', 'Todavía no hay clientes', 'Los clientes se guardan solos cuando registra un trabajo.');
+  const rows = rec.clientes().map((c) => {
+    const regs = rec.registros().filter((r) => r.clienteId === c.id);
+    const last = regs.map((r) => r.fechaInicio).sort().pop() || '';
+    const abiertos = regs.filter((r) => !r.bloqueado && r.estado !== 'terminado').length;
+    return { c, n: regs.length, last, abiertos };
+  }).filter(({ c }) => !q || `${c.nombre} ${c.telefono}`.toLowerCase().includes(q))
+    .sort((a, b) => b.last.localeCompare(a.last));
+  if (!rows.length) return emptyState('search', 'Sin resultados', 'No hay clientes con ese nombre o número.');
+  return `<p class="results-count" role="status">${rows.length} ${rows.length === 1 ? 'cliente' : 'clientes'}</p><div class="stack-sm">${rows.map(({ c, n, last, abiertos }) => `<a class="ccard" href="#/cliente/${c.id}">
+      <span class="avatar" aria-hidden="true">${esc((c.nombre || '?').trim().charAt(0).toUpperCase())}</span>
+      <span class="ccard__body"><span class="ccard__name">${esc(c.nombre)}</span>
+      <span class="ccard__sub">${n} ${n === 1 ? 'registro' : 'registros'}${abiertos ? ` · ${abiertos} abierto${abiertos === 1 ? '' : 's'}` : ''}${last ? ` · último ${esc(fmt.fecha(last, { corta: true }))}` : ''}</span></span>
+      ${ICO.chev}
+    </a>`).join('')}</div>`;
+}
+
+function viewHistorial(q) {
+  if (q.vista) histVista = q.vista === 'clientes' ? 'clientes' : 'registros';
+  const nf = filtrosActivos();
+  const body = histVista === 'clientes'
+    ? `<div class="search">${ICO.search}<label class="visually-hidden" for="cq">Buscar cliente</label><input id="cq" type="search" data-search="clientes" value="${esc(clienteQ)}" placeholder="Buscar cliente o número"></div>
+       <div id="results">${clientesHtml()}</div>`
+    : `<div class="search">${ICO.search}<label class="visually-hidden" for="hq">Buscar</label><input id="hq" type="search" data-search="registros" value="${esc(hf.q)}" placeholder="Buscar cliente, servicio o número"></div>
+      <div class="filter-row">
+        ${seg('hf-tipo', hf.tipo, [['todos', 'Todos'], ['trabajo', 'Trabajos'], ['mantenimiento', 'Manten.']])}
+        <button type="button" class="btn btn--ghost btn--sm filter-btn" data-act="hf-toggle" aria-expanded="${hfOpen}" aria-controls="filtros">${ICO.filter}Filtros${nf ? ` <span class="count">${nf}</span>` : ''}</button>
+      </div>
+      <div id="filtros" class="filters card" ${hfOpen ? '' : 'hidden'}>
+        <div class="field">
+          <label for="hf-serv">Servicio</label>
+          <select id="hf-serv" data-hf="servicio">
+            <option value="">Todos los servicios</option>
+            ${cat.SERVICIOS.map((s) => `<option value="${s.key}" ${hf.servicio === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="hf-estado">Estado</label>
+          <select id="hf-estado" data-hf="estado">
+            <option value="">Todos</option>
+            ${cat.ESTADOS.map((e) => `<option value="${e.key}" ${hf.estado === e.key ? 'selected' : ''}>${esc(e.label)}${e.key === 'terminado' ? ' (sin firmar)' : ''}</option>`).join('')}
+            <option value="firmado" ${hf.estado === 'firmado' ? 'selected' : ''}>Firmado y cerrado</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="hf-desde">Desde</label><input id="hf-desde" type="date" data-hf="desde" value="${esc(hf.desde)}"></div>
+          <div class="field"><label for="hf-hasta">Hasta</label><input id="hf-hasta" type="date" data-hf="hasta" value="${esc(hf.hasta)}"></div>
+        </div>
+        <div class="field">
+          <label for="hf-orden">Ordenar por</label>
+          <select id="hf-orden" data-hf="orden">
+            <option value="recientes" ${hf.orden === 'recientes' ? 'selected' : ''}>Más recientes primero</option>
+            <option value="antiguos" ${hf.orden === 'antiguos' ? 'selected' : ''}>Más antiguos primero</option>
+            <option value="cliente" ${hf.orden === 'cliente' ? 'selected' : ''}>Cliente (A a Z)</option>
+            <option value="precio" ${hf.orden === 'precio' ? 'selected' : ''}>Precio (mayor a menor)</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn--ghost btn--block btn--sm" data-act="hf-clear">Quitar filtros</button>
+      </div>
+      <div id="results">${resultadosHtml()}</div>`;
+  return screen(`
+    <h1 class="title">Historial</h1>
+    ${seg('hist-vista', histVista, [['registros', 'Registros'], ['clientes', 'Por cliente']])}
+    <div class="gap"></div>
+    ${body}
+  `, { tab: 'historial' });
+}
+
+function viewCliente(id) {
+  const c = rec.cliente(id);
+  if (!c) return viewNoEncontrado();
+  const regs = rec.registros().filter((r) => r.clienteId === id).sort((a, b) => b.fechaInicio.localeCompare(a.fechaInicio));
+  const avisos = rec.recordatorios().filter((a) => a.registro.clienteId === id);
+  const total = regs.filter((r) => r.estado === 'terminado').reduce((s, r) => s + (rec.totalRegistro(r) || 0), 0);
+  return screen(`
+    <div class="client-head">
+      <span class="avatar avatar--lg" aria-hidden="true">${esc((c.nombre || '?').charAt(0).toUpperCase())}</span>
+      <div><h1 class="title title--sm">${esc(c.nombre)}</h1><p class="muted">${esc(fmt.telefono(c.telefono))}</p></div>
+    </div>
+    <div class="row-gap">
+      ${waIcon(c.telefono, `Hola, le escribe ${tecnico()} de SEID.`, 'WhatsApp')}
+      <a class="btn btn--ghost btn--sm" href="#/nuevo?cliente=${c.id}">${ICO.plus}Nuevo registro</a>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="stat__num">${regs.length}</span><span class="stat__lbl">Registros</span></div>
+      <div class="stat"><span class="stat__num">${esc(fmt.bs(total))}</span><span class="stat__lbl">En trabajos terminados</span></div>
+    </div>
+    ${avisos.length ? `<section class="section"><h2 class="section__title">Próximo mantenimiento</h2><div class="stack-sm">${avisos.map(avisoCard).join('')}</div></section>` : ''}
+    <section class="section">
+      <h2 class="section__title">Historial del cliente</h2>
+      ${regs.length ? `<div class="stack-sm">${regs.map((r) => registroCard(r, { showClient: false })).join('')}</div>` : emptyState('list', 'Sin registros', 'Este cliente todavía no tiene trabajos.')}
+    </section>
+  `, { title: 'Cliente', back: '#/historial?vista=clientes', tab: 'historial' });
+}
+
+/* ---------- calendario ---------- */
+
+function viewCalendario() {
+  const y = calCursor.getFullYear();
+  const m = calCursor.getMonth();
+  const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+  const days = new Date(y, m + 1, 0).getDate();
+  const today = rec.todayISO();
+  const regsByDay = {};
+  for (const r of rec.registros()) (regsByDay[r.fechaInicio] ||= []).push(r);
+  const avisosByDay = {};
+  for (const a of rec.recordatorios()) (avisosByDay[a.fecha] ||= []).push(a);
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push('<span class="cal__cell is-blank"></span>');
+  for (let d = 1; d <= days; d++) {
+    const iso = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const has = regsByDay[iso]?.length || 0;
+    const av = avisosByDay[iso]?.length || 0;
+    const label = `${fmt.fecha(iso, { dia: true })}${has ? `, ${has} ${has === 1 ? 'registro' : 'registros'}` : ''}${av ? `, ${av} por hacer` : ''}`;
+    cells.push(`<button type="button" class="cal__cell ${iso === today ? 'is-today' : ''} ${iso === calSel ? 'is-sel' : ''}" data-day="${iso}" aria-pressed="${iso === calSel}" aria-label="${esc(label)}">
+      <span>${d}</span><span class="cal__marks">${has ? '<i class="mk"></i>' : ''}${av ? '<i class="mk mk--ring"></i>' : ''}</span></button>`);
+  }
+  const selRegs = regsByDay[calSel] || [];
+  const selAv = avisosByDay[calSel] || [];
+  const proximos = rec.recordatorios({ dentroDeDias: 60 }).filter((a) => a.dias >= 0);
+  return screen(`
+    <h1 class="title">Calendario</h1>
+    <div class="cal card">
+      <div class="cal__head">
+        <button type="button" class="icon-btn" data-cal="-1" aria-label="Mes anterior">${ICO.chevL}</button>
+        <p class="cal__month" aria-live="polite">${esc(fmt.mesAnio(calCursor))}</p>
+        <button type="button" class="icon-btn" data-cal="1" aria-label="Mes siguiente">${ICO.chev}</button>
+      </div>
+      <div class="cal__grid cal__grid--dow" aria-hidden="true">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x) => `<span>${x}</span>`).join('')}</div>
+      <div class="cal__grid">${cells.join('')}</div>
+      <p class="cal__legend"><span><i class="mk"></i>Registro</span><span><i class="mk mk--ring"></i>Mantenimiento por hacer</span></p>
+    </div>
+    <section class="section">
+      <h2 class="section__title">${esc(fmt.fecha(calSel, { dia: true }))}</h2>
+      <div class="stack-sm">
+        ${selAv.map((a) => avisoCard(a)).join('')}
+        ${selRegs.map((r) => registroCard(r)).join('')}
+      </div>
+      ${!selRegs.length && !selAv.length ? '<p class="muted">Nada registrado este día.</p>' : ''}
+      <button type="button" class="btn btn--ghost btn--block btn--sm gap-top" data-act="nuevo-en-dia">${ICO.plus}Registrar para este día</button>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Mantenimientos de los próximos 60 días</h2>
+      ${proximos.length ? `<div class="stack-sm">${proximos.map(avisoCard).join('')}</div>` : '<p class="muted">No hay mantenimientos programados.</p>'}
+    </section>
+  `, { tab: 'calendario' });
+}
+
+/* ---------- ajustes ---------- */
+
+function viewAjustes() {
+  const lastBackup = store.meta('lastBackupAt');
+  const notif = 'Notification' in window ? Notification.permission : 'unsupported';
+  const nReg = rec.registros().filter((r) => !r.demo).length;
+  return screen(`
+    <h1 class="title">Ajustes</h1>
+    <section class="section">
+      <h2 class="section__title">Respaldo de datos</h2>
+      <div class="card stack">
+        <p>${api.enabled() ? 'Sus datos se guardan en este teléfono y se copian al servidor de SEID cuando hay internet. Igual puede guardar una copia propia.' : 'Sus datos están guardados <strong>solo en este teléfono</strong>.'} Guarde una copia cada semana (en WhatsApp, Drive o correo) para no perder nada si cambia o pierde el teléfono.</p>
+        <p class="muted small">${lastBackup ? `Último respaldo: ${esc(fmt.fechaHora(lastBackup))}` : 'Todavía no hizo ningún respaldo.'} · ${nReg} ${nReg === 1 ? 'registro' : 'registros'} propios</p>
+        <button type="button" class="btn btn--block" data-act="backup">${ICO.share}Guardar respaldo</button>
+        <label class="btn btn--ghost btn--block" for="restore-file">${ICO.upload}Restaurar desde un respaldo</label>
+        <input id="restore-file" class="visually-hidden" type="file" accept="application/json,.json" data-act="restore">
+        <p class="hint" id="storage-info"></p>
+      </div>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Avisos de mantenimiento</h2>
+      <div class="card stack">
+        <p>Después de cada instalación o mantenimiento de aire, la app programa el siguiente a los 6 meses y le avisa 15 días antes.</p>
+        ${notif === 'granted' ? `<p class="ok">${ICO.check}<span>Avisos activados en este teléfono.</span></p><button type="button" class="btn btn--ghost btn--block btn--sm" data-act="notif-test">Probar un aviso</button>`
+          : notif === 'denied' ? '<p class="muted">Los avisos están bloqueados. Actívelos en los ajustes del navegador para este sitio.</p>'
+          : notif === 'unsupported' ? '<p class="muted">En iPhone, los avisos funcionan después de instalar la app en la pantalla de inicio.</p>'
+          : `<button type="button" class="btn btn--block" data-act="notif">${ICO.bell}Activar avisos</button>`}
+      </div>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Mi cuenta</h2>
+      <div class="card stack">
+        <div class="field"><label for="a-nombre">Nombre del técnico (sale en el PDF)</label><input type="text" id="a-nombre" value="${esc(tecnico())}" data-act="tecnico" autocomplete="name"></div>
+        <button type="button" class="btn btn--ghost btn--block" data-act="pin-cambiar">${ICO.lock}${auth.hasPin() ? 'Cambiar PIN' : 'Crear PIN'}</button>
+        ${auth.hasPin() ? '<button type="button" class="btn btn--ghost btn--block" data-act="bloquear">Bloquear ahora</button>' : ''}
+        ${api.enabled() ? '<button type="button" class="btn btn--ghost btn--block" data-act="logout">Cerrar sesión</button>' : ''}
+      </div>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Instalar en el teléfono</h2>
+      <div class="card stack">
+        ${installPrompt ? `<button type="button" class="btn btn--block" data-act="install">${ICO.phone}Instalar la app</button>` : ''}
+        <p><strong>Android (Chrome):</strong> menú ⋮ y luego «Instalar aplicación» o «Agregar a la pantalla principal».</p>
+        <p><strong>iPhone (Safari):</strong> botón Compartir y luego «Agregar a inicio».</p>
+      </div>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Sincronización</h2>
+      <div class="card stack">
+        <p>${api.enabled() ? 'Conectado al servidor de SEID.' : 'Por ahora todo queda en este teléfono. La copia en la nube llega en la próxima versión, sin perder lo que registre desde hoy.'}</p>
+        <p class="muted small" id="pending-info"></p>
+        ${api.enabled() ? '<button type="button" class="btn btn--ghost btn--block" data-act="sync">Sincronizar ahora</button>' : ''}
+      </div>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Datos de ejemplo</h2>
+      <div class="card stack">
+        ${sample.hayEjemplo()
+          ? '<p>Hay datos de ejemplo cargados. Al borrarlos, sus registros reales se mantienen.</p><button type="button" class="btn btn--block" data-act="empezar">Borrar ejemplos y empezar</button>'
+          : '<p>Puede cargar unos registros ficticios para mostrar la app. Después se borran con un toque, sin tocar sus datos.</p><button type="button" class="btn btn--ghost btn--block" data-act="cargar-ejemplo">Cargar datos de ejemplo</button>'}
+      </div>
+    </section>
+    <section class="section">
+      <h2 class="section__title">Zona de cuidado</h2>
+      <div class="card stack">
+        <p>Borra todos los clientes, trabajos y mantenimientos de este teléfono. Haga un respaldo antes.</p>
+        <button type="button" class="btn btn--danger-ghost btn--block" data-act="borrar-todo">${ICO.trash}Borrar todos los datos</button>
+      </div>
+    </section>
+    <p class="version">SEID · Panel de trabajo · versión ${esc(APP_VERSION)}</p>
+  `, { tab: 'ajustes' });
+}
+
+function viewNoEncontrado() {
+  return screen(emptyState('search', 'No se encontró', 'Puede que el registro se haya borrado o el enlace esté incompleto.', '<a class="btn" href="#/inicio">Ir al inicio</a>'), { back: '#/inicio' });
+}
+
+/* ---------- render ---------- */
 
 function render() {
-  const root = document.getElementById('app');
   const route = parseRoute();
-  const session = sessionOrLogin(route);
-  if (!session && route.name !== 'login') return;
-
-  menuOpen = false;
-  let html = '';
-  if (route.name === 'login') html = viewLogin();
-  else if (route.name === 'inicio' || route.parts.length === 0) html = viewInicio(session);
-  else if (route.name === 'clientes' && route.id === 'nuevo') html = viewClienteNuevo();
-  else if (route.name === 'clientes' && route.id) html = viewClienteDetalle(route.id);
-  else if (route.name === 'clientes') html = viewClientes(clienteQuery);
-  else if (route.name === 'mantenimiento' && route.id) html = viewMantenimientoDetalle(route.id, route.q);
-  else if (route.name === 'mantenimiento') {
-    if (!draft) draft = emptyDraft({ clienteId: route.q.cliente });
-    else if (route.q.cliente && draft.clienteId !== route.q.cliente) draft = emptyDraft({ clienteId: route.q.cliente });
-    html = viewMantenimientoNuevo();
-  } else if (route.name === 'trabajos' && route.id === 'nuevo') html = viewTrabajoNuevo();
-  else if (route.name === 'trabajos' && route.id) html = viewTrabajoDetalle(route.id);
-  else if (route.name === 'trabajos') html = viewTrabajos(trabajoFiltro);
-  else if (route.name === 'agenda' || route.name === 'recordatorios') html = viewAgenda();
-  else if (route.name === 'cotizar' || route.name === 'cotizaciones') html = viewCotizar();
-  else html = viewInicio(session);
-
-  root.innerHTML = html;
-  bindAfterRender(route);
+  const hash = location.hash;
+  const sameView = hash === lastHash;
+  const scroll = sameView ? window.scrollY : 0;
+  let html;
+  let plain = false;
+  if (!api.loggedIn() && !loginLuego()) { html = viewLogin(); plain = true; }
+  else if (!store.meta('setupDone')) { html = viewBienvenida(); plain = true; }
+  else if (auth.isLocked()) { html = viewBloqueo(); plain = true; }
+  else {
+    switch (route.name) {
+      case 'inicio': html = viewInicio(); break;
+      case 'nuevo': html = route.id ? viewForm(route.id, route.q) : viewNuevo(route.q); break;
+      case 'registro':
+        html = route.sub === 'nota' ? viewNota(route.id) : route.sub === 'cerrar' ? viewCerrar(route.id) : viewRegistro(route.id);
+        break;
+      case 'historial': html = viewHistorial(route.q); break;
+      case 'cliente': html = viewCliente(route.id); break;
+      case 'calendario': html = viewCalendario(); break;
+      case 'ajustes': html = viewAjustes(); break;
+      default: html = viewNoEncontrado();
+    }
+  }
+  const lockedView = plain ? 'plain' : 'app';
+  const wasPlain = app.dataset.view;
+  app.dataset.view = lockedView;
+  app.innerHTML = html;
+  const changed = !sameView || wasPlain !== lockedView;
+  lastHash = hash;
+  window.scrollTo(0, changed ? 0 : scroll);
+  if (changed) {
+    const h = app.querySelector('h1');
+    if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  }
+  if (app.querySelector('[data-pad]')) mountPads();
+  if (!plain && route.name === 'ajustes') fillAjustesInfo();
+  const t = app.querySelector('.topbar__title')?.textContent || app.querySelector('h1')?.textContent || '';
+  document.title = t ? `${t.trim()} · SEID` : 'SEID · Panel de trabajo';
 }
 
-function bindAfterRender(route) {
-  const root = document.getElementById('app');
+async function fillAjustesInfo() {
+  const el = document.getElementById('pending-info');
+  if (el) {
+    const n = await store.pendingCount();
+    el.textContent = api.enabled()
+      ? (n ? `${n} cambios esperando para subir.` : 'Todo está al día.')
+      : `${n} cambios guardados en este teléfono, listos para subir a la nube cuando esté activa.`;
+  }
+  try {
+    const info = document.getElementById('storage-info');
+    if (info && navigator.storage && navigator.storage.estimate) {
+      const est = await navigator.storage.estimate();
+      const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+      info.textContent = `${persisted ? 'El teléfono protege estos datos contra borrado automático. ' : ''}Espacio usado: ${(est.usage / 1048576).toFixed(1).replace('.', ',')} MB.`;
+    }
+  } catch { /* */ }
+}
 
-  root.querySelector('#login-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const nombre = String(fd.get('nombre') || 'Ing. Abel Galarza').trim();
-    db.setSession({ nombre, at: Date.now(), demo: true });
-    go('#/inicio');
+/* ---------- respaldo ---------- */
+
+async function doBackup() {
+  const snap = store.snapshot();
+  snap.clientes = snap.clientes.filter((c) => !c.demo);
+  snap.registros = snap.registros.filter((r) => !r.demo);
+  const ids = new Set(snap.registros.map((r) => r.id));
+  snap.eventos = snap.eventos.filter((e) => !e.demo && ids.has(e.registroId));
+  snap.firmas = (snap.firmas || []).filter((f) => ids.has(f.registroId));
+  snap.fotos = (snap.fotos || []).filter((f) => ids.has(f.registroId));
+  const blob = new Blob([JSON.stringify(snap)], { type: 'application/json' });
+  const name = `SEID-respaldo-${rec.todayISO()}.json`;
+  const res = await shareFile(blob, name, { title: 'Respaldo SEID', text: `Respaldo de SEID del ${fmt.fecha(rec.todayISO())}`, type: 'application/json' });
+  if (res === 'aborted') return;
+  await store.setMeta('lastBackupAt', new Date().toISOString());
+  toast(res === 'shared' ? 'Respaldo guardado' : 'Respaldo descargado en el teléfono');
+  render();
+}
+
+async function doRestore(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { alertDialog('Archivo no válido', 'No se pudo leer el archivo. Elija un respaldo de SEID (.json).'); return; }
+  if (!data || data.app !== 'SEID' || !Array.isArray(data.registros)) { alertDialog('Archivo no válido', 'Este archivo no es un respaldo de SEID.'); return; }
+  const n = data.registros.length;
+  const hay = rec.registros().some((r) => !r.demo);
+  const ok = await confirmDialog({
+    title: 'Restaurar respaldo',
+    body: `El respaldo del ${fmt.fechaHora(data.exportadoEl)} tiene ${n} ${n === 1 ? 'registro' : 'registros'}.${hay ? ' Se combinará con lo que ya tiene; si un registro está en los dos, se queda la versión más reciente.' : ''}`,
+    ok: 'Restaurar'
   });
+  if (!ok) return;
+  try {
+    await store.restore(data, 'merge');
+    toast('Respaldo restaurado');
+    render();
+  } catch (err) {
+    alertDialog('No se pudo restaurar', err.message);
+  }
+}
 
-  root.querySelector('#form-cliente')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const rec = {
-      id: db.uid('c'),
-      nombre: String(fd.get('nombre') || '').trim(),
-      telefono: String(fd.get('telefono') || '').replace(/\D/g, ''),
-      direccion: String(fd.get('direccion') || '').trim(),
-      zona: String(fd.get('zona') || '').trim(),
-      notas: String(fd.get('notas') || '').trim(),
-      equipos: []
-    };
-    if (!rec.nombre) return toast('Escriba el nombre del cliente.');
-    state.clientes.unshift(rec);
-    persist();
-    toast('Cliente guardado.');
-    go('#/clientes/' + rec.id);
-  });
+/* ---------- avisos (notificaciones locales) ---------- */
 
-  root.querySelector('#form-trabajo')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const rec = {
-      id: db.uid('t'),
-      tipo: String(fd.get('tipo')),
-      clienteId: String(fd.get('clienteId') || ''),
-      fecha: String(fd.get('fecha')),
-      monto: Number(String(fd.get('monto') || '0').replace(',', '.')) || 0,
-      estado: String(fd.get('estado') || 'pendiente'),
-      descripcion: String(fd.get('descripcion') || '').trim()
-    };
-    state.trabajos.unshift(rec);
-    persist();
-    toast('Trabajo guardado.');
-    go('#/trabajos/' + rec.id);
-  });
-
-  const search = root.querySelector('#q-clientes');
-  if (search) {
-    search.addEventListener('input', (e) => {
-      clienteQuery = e.target.value;
-      const keep = search.selectionStart;
-      render();
-      const again = document.getElementById('q-clientes');
-      if (again) {
-        again.focus();
-        try { again.setSelectionRange(keep, keep); } catch { /* ignore */ }
-      }
+async function checkAvisos() {
+  if (!('Notification' in window) || Notification.permission !== 'granted' || !navigator.serviceWorker) return;
+  // Con servidor y Web Push activo, los avisos los manda el servidor (evita duplicados).
+  if (api.enabled() && store.meta('pushSub')) return;
+  const reg = await navigator.serviceWorker.ready.catch(() => null);
+  if (!reg) return;
+  const hoy = rec.todayISO();
+  const avisados = new Set(store.meta('avisados', []));
+  let changed = false;
+  for (const a of rec.recordatorios({ dentroDeDias: 15 })) {
+    const key = `${a.registro.id}:${a.fecha}`;
+    if (avisados.has(key) || rec.fechaAviso(a.fecha) > hoy || a.registro.demo) continue;
+    await reg.showNotification(`Mantenimiento: ${fmt.diasTexto(a.dias).toLowerCase()}`, {
+      body: `${a.registro.cliente?.nombre} · ${fmt.fecha(a.fecha)}. Toque para ver el registro.`,
+      tag: `mant-${a.registro.id}`,
+      icon: 'icons/icon-192.png',
+      badge: 'icons/icon-192.png',
+      data: { url: `#/registro/${a.registro.id}` }
     });
+    avisados.add(key);
+    changed = true;
+  }
+  if (changed) await store.setMeta('avisados', [...avisados]);
+}
+
+async function enableNotifications() {
+  const p = await Notification.requestPermission();
+  if (p === 'granted') {
+    toast('Avisos activados');
+    try { await api.ensurePush(); } catch { /* se reintenta al abrir la app */ }
+    await registerPeriodic();
+    checkAvisos();
+  } else toast('No se activaron los avisos');
+  render();
+}
+
+async function registerPeriodic() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if ('periodicSync' in reg) await reg.periodicSync.register('seid-avisos', { minInterval: 12 * 60 * 60 * 1000 });
+  } catch { /* no disponible: se revisa al abrir la app */ }
+}
+
+/* ---------- sincronización ---------- */
+
+let syncTimer = 0;
+function syncSoon(delay = 1500) {
+  if (!api.enabled()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      const out = await api.sync();
+      if (out && out.rejected) toast(`El servidor no aceptó ${out.rejected} cambio(s). Se mantuvo su versión.`);
+      if (out && !out.skipped && ['inicio', 'historial', 'calendario'].includes(parseRoute().name) && !document.querySelector('.dialog, input:focus, textarea:focus')) render();
+    } catch { /* sin red: se reintenta después */ }
+  }, delay);
+}
+
+/* ---------- eventos ---------- */
+
+function setPath(obj, path, value) {
+  const keys = path.split('.');
+  let o = obj;
+  for (const k of keys.slice(0, -1)) o = o[k] ||= {};
+  o[keys[keys.length - 1]] = value;
+}
+
+function redraw() { saveDraft(); render(); }
+
+async function onClick(e) {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  if (!auth.isLocked()) auth.markActive();
+
+  const key = t.closest('[data-key]');
+  if (key) { await pinKey(key.getAttribute('data-key')); return; }
+
+  const segBtn = t.closest('[data-seg]');
+  if (segBtn) { await onSeg(segBtn.getAttribute('data-seg'), segBtn.getAttribute('data-val'), segBtn); return; }
+
+  if (draft) {
+    const pick = t.closest('[data-pick-cliente]');
+    if (pick) {
+      const c = rec.cliente(pick.getAttribute('data-pick-cliente'));
+      if (c) { draft.clienteId = c.id; draft.nombre = c.nombre; draft.telefono = (c.telefono || '').replace(/^591/, ''); redraw(); }
+      return;
+    }
+    const eqt = t.closest('[data-eqtipo]');
+    if (eqt) { const v = eqt.getAttribute('data-eqtipo'); draft.equipo.tipo = draft.equipo.tipo === v ? '' : v; redraw(); return; }
+    const tier = t.closest('[data-tier]');
+    if (tier) { const v = tier.getAttribute('data-tier'); draft.tier = draft.tier === v ? '' : v; applyPrice(draft); redraw(); return; }
+    const ex = t.closest('[data-extra]');
+    if (ex) { const k = ex.getAttribute('data-extra'); draft.extras[k] = draft.extras[k] ? 0 : 1; applyPrice(draft); redraw(); return; }
+    const metro = t.closest('[data-metro]');
+    if (metro) { draft.extras.tuberia = Math.max(0, Math.min(99, Number(draft.extras.tuberia || 0) + Number(metro.getAttribute('data-metro')))); applyPrice(draft); redraw(); return; }
+    const chk = t.closest('[data-check]');
+    if (chk) { const k = chk.getAttribute('data-check'); draft.checklist[k] = !draft.checklist[k]; redraw(); return; }
   }
 
-  if (route.name === 'mantenimiento' && !route.id) {
-    bindSignature(root.querySelector('#sig-cliente'), draft.firmaCliente);
-    bindSignature(root.querySelector('#sig-tecnico'), draft.firmaTecnico);
-    root.querySelector('#m-fotos')?.addEventListener('change', async (e) => {
-      const files = [...(e.target.files || [])].slice(0, 3 - draft.fotos.length);
-      for (const f of files) {
-        try { draft.fotos.push(await compressImage(f)); }
-        catch { toast('No se pudo leer una foto.'); }
+  const day = t.closest('[data-day]');
+  if (day) { calSel = day.getAttribute('data-day'); render(); return; }
+  const calNav = t.closest('[data-cal]');
+  if (calNav) { calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + Number(calNav.getAttribute('data-cal')), 1); render(); return; }
+
+  const desc = t.closest('[data-descartar]');
+  if (desc) {
+    const ok = await confirmDialog({ title: 'Descartar recordatorio', body: 'Ya no se mostrará este mantenimiento pendiente. ¿Continuar?', ok: 'Descartar' });
+    if (ok) { await rec.descartarRecordatorio(desc.getAttribute('data-descartar')); toast('Recordatorio descartado'); render(); }
+    return;
+  }
+  const foto = t.closest('[data-foto]');
+  if (foto) { const ev = D().eventos.find((x) => x.id === foto.getAttribute('data-foto')); if (ev?.fotoId) viewPhoto(rec.fotoSrc(ev.fotoId)); return; }
+  const pdf = t.closest('[data-pdf]');
+  if (pdf) { doPdf(pdf.getAttribute('data-pdf'), pdf.getAttribute('data-mode')); return; }
+  const padClear = t.closest('[data-pad-clear]');
+  if (padClear) { pads[padClear.getAttribute('data-pad-clear')]?.clear(); return; }
+
+  const act = t.closest('[data-act]');
+  if (!act || act.tagName === 'INPUT') return;
+  switch (act.getAttribute('data-act')) {
+    case 'draft-save': await saveRegistro(); break;
+    case 'draft-cancel': {
+      const ok = await confirmDialog({ title: 'Descartar registro', body: 'Se borrará lo que escribió en este formulario.', ok: 'Descartar', danger: true });
+      if (ok) { draft = null; saveDraft(); go('#/nuevo'); }
+      break;
+    }
+    case 'cliente-otro': draft.clienteId = ''; draft.nombre = ''; draft.telefono = ''; redraw(); document.getElementById('f-nombre')?.focus(); break;
+    case 'precio-auto': draft.precioManual = false; applyPrice(draft); redraw(); break;
+    case 'check-all': {
+      const all = cat.CHECKLIST_AIRE.every((i) => draft.checklist[i.key]);
+      for (const i of cat.CHECKLIST_AIRE) draft.checklist[i.key] = !all;
+      redraw();
+      break;
+    }
+    case 'nota-save': await saveNota(); break;
+    case 'nota-foto-quitar': nota.foto = null; render(); break;
+    case 'cerrar-save': await saveCierre(); break;
+    case 'hf-toggle': hfOpen = !hfOpen; render(); break;
+    case 'hf-clear': hf = { q: '', tipo: 'todos', servicio: '', estado: '', desde: '', hasta: '', orden: 'recientes' }; render(); break;
+    case 'nuevo-en-dia':
+      draftDate = calSel;
+      if (draft && !draft.nombre) draft = null;
+      go('#/nuevo');
+      break;
+    case 'empezar': {
+      const ok = await confirmDialog({ title: 'Empezar a usar', body: 'Se borrarán los datos de ejemplo. Sus registros reales (si tiene) se mantienen.', ok: 'Borrar ejemplos' });
+      if (ok) { await sample.borrarEjemplo(); toast('Listo. Ya puede registrar sus trabajos.'); go('#/inicio'); }
+      break;
+    }
+    case 'backup': await doBackup(); break;
+    case 'notif': await enableNotifications(); break;
+    case 'notif-test': {
+      if (api.enabled() && store.meta('pushSub')) {
+        try { await api.testPush(); toast('Aviso de prueba enviado'); } catch (err) { toast(err.message); }
+        break;
       }
+      const reg = await navigator.serviceWorker.ready;
+      const r = rec.registros()[0];
+      await reg.showNotification('Aviso de prueba', { body: 'Así le avisaremos de los mantenimientos. Toque para abrir.', icon: 'icons/icon-192.png', tag: 'prueba', data: { url: r ? `#/registro/${r.id}` : '#/inicio' } });
+      break;
+    }
+    case 'install':
+      if (installPrompt) {
+        installPrompt.prompt();
+        const ch = await installPrompt.userChoice;
+        installPrompt = null;
+        if (ch.outcome === 'accepted') toast('App instalada');
+        render();
+      }
+      break;
+    case 'install-hide': await store.setMeta('installHidden', true); render(); break;
+    case 'cargar-ejemplo': await sample.cargarEjemplo(); toast('Datos de ejemplo cargados'); go('#/inicio'); break;
+    case 'borrar-todo': {
+      const ok = await confirmDialog({ title: '¿Borrar todos los datos?', body: 'Se borrarán todos los clientes, trabajos, mantenimientos, notas y firmas de este teléfono. No se puede deshacer.', ok: 'Borrar todo', danger: true });
+      if (!ok) break;
+      const ok2 = await confirmDialog({ title: 'Confirme otra vez', body: '¿Seguro? Si no tiene respaldo, se pierde todo.', ok: 'Sí, borrar todo', danger: true });
+      if (ok2) { await store.clearData(); draft = null; saveDraft(); toast('Datos borrados'); go('#/inicio'); }
+      break;
+    }
+    case 'pin-cambiar': await cambiarPin(); break;
+    case 'bloquear': auth.lock(); pinBuffer = ''; pinFails = 0; render(); break;
+    case 'pin-olvide': await olvidePin(); break;
+    case 'logout': {
+      const pend = await store.pendingCount();
+      const ok = await confirmDialog({
+        title: 'Cerrar sesión',
+        body: pend ? `Hay ${pend} cambio(s) sin subir. Se quedan en el teléfono y se suben cuando vuelva a entrar.` : 'Los registros se quedan en este teléfono.',
+        ok: 'Cerrar sesión'
+      });
+      if (!ok) break;
+      await api.logout();
+      try { sessionStorage.removeItem('seid-login-luego'); } catch { /* */ }
       render();
-    });
+      break;
+    }
+    case 'login-luego': try { sessionStorage.setItem('seid-login-luego', '1'); } catch { /* */ } render(); break;
+    case 'sync':
+      try { await api.sync(); toast('Sincronizado'); } catch (err) { toast(err.message); }
+      render();
+      break;
+    default: break;
+  }
+}
+
+async function onSeg(name, val, btn) {
+  const group = btn.closest('.seg');
+  const selectOnly = () => group.querySelectorAll('button').forEach((b) => {
+    const on = b === btn;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  if (name === 'teUnidad' || name === 'estado') { if (draft) { draft[name] = val; saveDraft(); } selectOnly(); return; }
+  if (name === 'trUnidad') { if (cierre) cierre.trUnidad = val; selectOnly(); return; }
+  if (name === 'signo') { if (nota) nota.signo = val; selectOnly(); return; }
+  if (name === 'hf-tipo') { hf.tipo = val; selectOnly(); updateResults(); return; }
+  if (name === 'hist-vista') { histVista = val; history.replaceState(null, '', `#/historial${val === 'clientes' ? '?vista=clientes' : ''}`); lastHash = location.hash; render(); return; }
+  if (name === 'estado-reg') {
+    const id = parseRoute().id;
+    const r = rec.registro(id);
+    if (!r || r.estado === val) return;
+    try {
+      if (val === 'terminado') {
+        const firmar = await confirmDialog({ title: '¿Trabajo terminado?', body: 'Puede cerrarlo ahora con las firmas, o solo marcarlo como terminado y firmar después.', ok: 'Firmar ahora', cancel: 'Solo marcar' });
+        await rec.cambiarEstado(id, val);
+        syncSoon();
+        if (firmar) { go(`#/registro/${id}/cerrar`); return; }
+      } else {
+        await rec.cambiarEstado(id, val);
+        syncSoon();
+      }
+      toast(`Estado: ${cat.estadoLabel(val)}`);
+      render();
+    } catch (err) {
+      alertDialog('No se pudo cambiar', err.message);
+    }
+  }
+}
+
+function updateResults() {
+  const box = document.getElementById('results');
+  if (!box) return;
+  box.innerHTML = histVista === 'clientes' ? clientesHtml() : resultadosHtml();
+  const btn = document.querySelector('[data-act="hf-toggle"]');
+  if (btn) {
+    const nf = filtrosActivos();
+    btn.innerHTML = `${ICO.filter}Filtros${nf ? ` <span class="count">${nf}</span>` : ''}`;
+  }
+}
+
+function clearFieldError(t) {
+  if (t.getAttribute('aria-invalid')) {
+    t.removeAttribute('aria-invalid');
+    t.removeAttribute('aria-describedby');
+    t.closest('.field')?.querySelector('.field-error')?.remove();
   }
 }
 
 function onInput(e) {
-  const margen = e.target.closest('#q-margen');
-  if (margen && quoteDraft) {
-    quoteDraft.margen = Number(margen.value);
-    const label = document.querySelector('label[for="q-margen"]');
-    if (label) label.innerHTML = 'Margen de ganancia: <strong>' + quoteDraft.margen + ' %</strong>';
-    const math = quoteMath(quoteDraft);
-    const box = document.querySelector('.quote-total');
-    if (box) {
-      box.innerHTML = '<div class="num">' + formatBs(math.total) + '</div><p>Subtotal ' + formatBs(math.subtotal) + ' · Margen ' + formatBs(math.margenMonto) + '</p>';
-    }
-  }
-}
-
-function onChange(e) {
   const t = e.target;
-  if (t.id === 'q-cliente' && quoteDraft) quoteDraft.clienteId = t.value;
-  if (t.matches && t.matches('[data-f="clienteId"]') && draft) {
-    draft.clienteId = t.value;
-    const c = db.getClient(state, t.value);
-    if (c) {
-      draft.ubicacion = c.direccion + (c.zona ? ' — ' + c.zona : '');
-      const ubi = document.getElementById('m-ubi');
-      if (ubi) ubi.value = draft.ubicacion;
-      if (c.equipos.length === 1) {
-        draft.equipoId = c.equipos[0].id;
-        applyEquipo(draft, c.equipos[0]);
-      } else {
-        draft.equipoId = '';
-      }
+  if (!auth.isLocked()) auth.markActive();
+  if (t.matches('[data-d]') && draft) {
+    const path = t.getAttribute('data-d');
+    setPath(draft, path, t.value);
+    if (path === 'precio') draft.precioManual = t.value.trim() !== '';
+    if (path === 'nombre') {
+      if (draft.clienteId) { const c = rec.cliente(draft.clienteId); if (!c || c.nombre !== t.value) draft.clienteId = ''; }
+      const box = document.getElementById('sugerencias');
+      if (box) box.innerHTML = sugerencias(draft);
+    }
+    clearFieldError(t);
+    saveDraft();
+    return;
+  }
+  if (t.matches('[data-n]') && nota) { nota[t.getAttribute('data-n')] = t.value; return; }
+  if (t.matches('[data-c]') && cierre) { cierre[t.getAttribute('data-c')] = t.value; return; }
+  if (t.matches('[data-search="registros"]')) { hf.q = t.value; updateResults(); return; }
+  if (t.matches('[data-search="clientes"]')) { clienteQ = t.value; updateResults(); }
+}
+
+async function onChange(e) {
+  const t = e.target;
+  if (t.matches('[data-hf]')) { hf[t.getAttribute('data-hf')] = t.value; updateResults(); return; }
+  if (t.matches('[data-act="tecnico"]')) { await store.setMeta('tecnicoNombre', t.value.trim() || TECNICO_NOMBRE); toast('Nombre guardado'); return; }
+  if (t.matches('[data-act="nota-foto"]') && t.files && t.files[0]) {
+    try { nota.foto = await compressPhoto(t.files[0]); render(); } catch (err) { alertDialog('Foto', err.message); }
+    return;
+  }
+  if (t.matches('[data-act="restore"]') && t.files && t.files[0]) { await doRestore(t.files[0]); t.value = ''; }
+}
+
+async function onSubmit(e) {
+  const f = e.target;
+  e.preventDefault();
+  if (f.id === 'form-bienvenida') {
+    const modo = e.submitter?.value || 'vacio';
+    const nombre = f.nombre.value.trim();
+    const pin = f.pin.value.trim();
+    if (!nombre) welcomeErr = 'Escriba su nombre.';
+    else if (!/^\d{4}$/.test(pin)) welcomeErr = 'El PIN debe tener exactamente 4 números.';
+    else if (pin !== f.pin2.value.trim()) welcomeErr = 'Los dos PIN no coinciden.';
+    else welcomeErr = '';
+    if (welcomeErr) {
+      render();
+      const el = document.getElementById(welcomeErr.includes('nombre') ? 'w-nombre' : 'w-pin');
+      if (el) { el.value = welcomeErr.includes('nombre') ? '' : ''; el.focus(); }
+      document.getElementById('w-nombre').value = nombre;
+      return;
+    }
+    await store.setMeta('tecnicoNombre', nombre);
+    await auth.setPin(pin);
+    if (modo === 'ejemplo') await sample.cargarEjemplo();
+    await store.setMeta('setupDone', true);
+    store.requestPersist().then((p) => store.setMeta('persisted', p));
+    go('#/inicio');
+    return;
+  }
+  if (f.id === 'form-login') {
+    const btn = f.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    try {
+      await api.login({ email: f.email.value.trim(), password: f.password.value });
+      lastHash = '';
+      render();
+      syncSoon(0);
+      if ('Notification' in window && Notification.permission === 'granted') api.ensurePush().catch(() => {});
+    } catch (err) {
+      btn.disabled = false;
+      alertDialog('No se pudo entrar', err.status === 401 ? 'El correo o la contraseña no son correctos.' : err.code?.startsWith('retry:') || err.status === 429 ? 'Demasiados intentos. Espere 15 minutos.' : err.message);
     }
   }
 }
 
-function onClick(e) {
-  const back = e.target.closest('[data-act="back"]');
-  if (back) {
-    e.preventDefault();
-    if (history.length > 1) history.back();
-    else go('#/inicio');
-    return;
-  }
-  if (e.target.closest('[data-act="menu"]')) {
-    e.preventDefault();
-    if (!document.querySelector('.menu-sheet')) {
-      document.getElementById('app').insertAdjacentHTML('beforeend', viewMenuSheet());
+async function pinKey(k) {
+  if (Date.now() < pinBlockedUntil) return;
+  if (k === 'del') { pinBuffer = pinBuffer.slice(0, -1); render(); return; }
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += k;
+  render();
+  if (pinBuffer.length === 4) {
+    const ok = await auth.checkPin(pinBuffer);
+    pinBuffer = '';
+    if (ok) { pinFails = 0; lastHash = ''; render(); checkAvisos(); return; }
+    pinFails += 1;
+    if (pinFails >= 5) {
+      pinBlockedUntil = Date.now() + 30000;
+      pinFails = 0;
+      setTimeout(render, 30500);
     }
-    return;
-  }
-  const closeSheet = e.target.closest('[data-act="close-sheet"]');
-  if (closeSheet) {
-    if (closeSheet.classList.contains('menu-sheet') || closeSheet.classList.contains('menu-item')) {
-      document.querySelector('.menu-sheet')?.remove();
-    }
-    return;
-  }
-  if (e.target.closest('[data-act="reset"]')) {
-    e.preventDefault();
-    if (confirm('Se volverán a cargar los datos de ejemplo. Se perderán los cambios que haya hecho en esta demostración. ¿Continuar?')) {
-      state = db.resetDemo();
-      draft = null;
-      quoteDraft = null;
-      document.querySelector('.menu-sheet')?.remove();
-      toast('Demo restablecida.');
-      go('#/inicio');
-    }
-    return;
-  }
-  if (e.target.closest('[data-act="logout"]')) {
-    db.clearSession();
-    document.querySelector('.menu-sheet')?.remove();
-    go('#/login');
-    return;
-  }
-
-  const tipoBtn = e.target.closest('[data-tipo]');
-  if (tipoBtn && draft) {
-    draft.tipo = tipoBtn.getAttribute('data-tipo');
-    collectWizardFields(document.getElementById('app'));
     render();
-    return;
+    if (navigator.vibrate) navigator.vibrate(120);
   }
-  const eqPick = e.target.closest('[data-equipo]');
-  if (eqPick && draft) {
-    collectWizardFields(document.getElementById('app'));
-    draft.equipoId = eqPick.getAttribute('data-equipo');
-    const c = db.getClient(state, draft.clienteId);
-    const eq = c?.equipos.find((x) => x.id === draft.equipoId);
-    if (eq) applyEquipo(draft, eq);
-    render();
-    return;
-  }
-  const eqTipo = e.target.closest('[data-eqtipo]');
-  if (eqTipo && draft) {
-    collectWizardFields(document.getElementById('app'));
-    draft.equipo.tipo = eqTipo.getAttribute('data-eqtipo');
-    render();
-    return;
-  }
-  const check = e.target.closest('[data-check]');
-  if (check && draft) {
-    const k = check.getAttribute('data-check');
-    draft.checklist[k] = !draft.checklist[k];
-    render();
-    return;
-  }
-  if (e.target.closest('[data-act="check-all"]') && draft) {
-    for (const i of db.CHECKLIST) draft.checklist[i.key] = true;
-    render();
-    return;
-  }
-  const corr = e.target.closest('[data-corr]');
-  if (corr && draft) {
-    collectWizardFields(document.getElementById('app'));
-    const k = corr.getAttribute('data-corr');
-    draft.trabajosCorrectivos[k] = !draft.trabajosCorrectivos[k];
-    render();
-    return;
-  }
-  if (e.target.closest('[data-act="add-diag"]') && draft) {
-    collectWizardFields(document.getElementById('app'));
-    draft.diagnostico.push('');
-    render();
-    return;
-  }
-  if (e.target.closest('[data-act="add-rep"]') && draft) {
-    collectWizardFields(document.getElementById('app'));
-    draft.repuestos.push({ nombre: '', cantidad: '' });
-    render();
-    return;
-  }
-  const sigclear = e.target.closest('[data-sigclear]');
-  if (sigclear && draft) {
-    const who = sigclear.getAttribute('data-sigclear');
-    if (who === 'cliente') draft.firmaCliente = '';
-    else draft.firmaTecnico = '';
-    const canvas = document.getElementById(who === 'cliente' ? 'sig-cliente' : 'sig-tecnico');
-    if (canvas) {
-      canvas.dataset.dirty = '';
-      bindSignature(canvas, '');
-    }
-    return;
-  }
-
-  const wiz = e.target.closest('[data-wiz]');
-  if (wiz && draft) {
-    collectWizardFields(document.getElementById('app'));
-    const act = wiz.getAttribute('data-wiz');
-    if (act === 'next') {
-      if (draft.step === 1 && !draft.clienteId) {
-        toast('Elija un cliente para continuar.');
-        return;
-      }
-      draft.step = Math.min(6, (draft.step || 1) + 1);
-      window.scrollTo(0, 0);
-      render();
-    } else if (act === 'prev') {
-      draft.step = Math.max(1, (draft.step || 1) - 1);
-      window.scrollTo(0, 0);
-      render();
-    } else if (act === 'save') {
-      saveMantenimiento();
-    }
-    return;
-  }
-
-  const filtro = e.target.closest('[data-filtro]');
-  if (filtro) {
-    trabajoFiltro = filtro.getAttribute('data-filtro');
-    render();
-    return;
-  }
-  const estChip = e.target.closest('#t-estado-row [data-estado]');
-  if (estChip) {
-    document.querySelectorAll('#t-estado-row .chip').forEach((n) => n.classList.remove('is-on'));
-    estChip.classList.add('is-on');
-    const hidden = document.getElementById('t-estado');
-    if (hidden) hidden.value = estChip.getAttribute('data-estado');
-    return;
-  }
-  const setEst = e.target.closest('[data-setestado]');
-  if (setEst) {
-    const t = state.trabajos.find((x) => x.id === setEst.getAttribute('data-tid'));
-    if (t) {
-      t.estado = setEst.getAttribute('data-setestado');
-      persist();
-      render();
-      toast('Estado actualizado.');
-    }
-    return;
-  }
-
-  const calBtn = e.target.closest('[data-cal]');
-  if (calBtn) {
-    const dir = calBtn.getAttribute('data-cal') === 'prev' ? -1 : 1;
-    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + dir, 1);
-    render();
-    return;
-  }
-  const dayBtn = e.target.closest('[data-day]');
-  if (dayBtn) {
-    calSelected = dayBtn.getAttribute('data-day');
-    render();
-    return;
-  }
-
-  const cat = e.target.closest('[data-cat]');
-  if (cat && quoteDraft) {
-    const id = cat.getAttribute('data-cat');
-    const item = db.CATALOGO.find((x) => x.id === id);
-    const exists = quoteDraft.items.findIndex((x) => x.id === id);
-    if (exists >= 0) quoteDraft.items.splice(exists, 1);
-    else if (item) quoteDraft.items.push({ id: item.id, nombre: item.nombre, precio: item.precio });
-    render();
-    return;
-  }
-  if (e.target.closest('[data-act="quote-pdf"]')) { handleQuote(false); return; }
-  if (e.target.closest('[data-act="quote-wa"]')) { handleQuote(true); return; }
-
-  const pdf = e.target.closest('[data-pdf]');
-  if (pdf) { handlePdf(pdf.getAttribute('data-pdf'), false); return; }
-  const share = e.target.closest('[data-share]');
-  if (share) { handlePdf(share.getAttribute('data-share'), true); return; }
 }
+
+async function cambiarPin() {
+  const html = `<div class="stack"><div class="field"><label for="np1">PIN nuevo (4 números)</label><input id="np1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password"></div>
+    <div class="field"><label for="np2">Repita el PIN</label><input id="np2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password"></div></div>`;
+  const vals = await confirmDialog({
+    title: 'Nuevo PIN', html, ok: 'Guardar PIN',
+    collect: (w) => ({ a: w.querySelector('#np1').value.trim(), b: w.querySelector('#np2').value.trim() })
+  });
+  if (!vals) return false;
+  if (!/^\d{4}$/.test(vals.a)) { await alertDialog('PIN no válido', 'El PIN debe tener exactamente 4 números.'); return false; }
+  if (vals.a !== vals.b) { await alertDialog('No coinciden', 'Los dos PIN no son iguales.'); return false; }
+  await auth.setPin(vals.a);
+  toast('PIN guardado');
+  render();
+  return true;
+}
+
+async function olvidePin() {
+  const ok = await confirmDialog({
+    title: '¿Olvidó su PIN?',
+    body: 'Puede crear un PIN nuevo. Sus datos se conservan. Hágalo solo si este teléfono es suyo.',
+    ok: 'Crear PIN nuevo'
+  });
+  if (!ok) return;
+  await auth.removePin();
+  if (!auth.isLocked()) auth.markActive();
+  lastHash = '';
+  render();
+  await cambiarPin();
+}
+
+/* ---------- arranque ---------- */
 
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(() => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          toast('Hay una versión nueva de la app.', { action: 'Actualizar', onAction: () => location.reload() });
+        }
+      });
+    });
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'open' && e.data.url) location.hash = e.data.url.replace(/^[^#]*/, '');
   });
 }
 
-document.addEventListener('click', onClick);
-document.addEventListener('change', onChange);
-document.addEventListener('input', onInput);
-
-window.addEventListener('hashchange', render);
-window.addEventListener('DOMContentLoaded', () => {
-  if (!location.hash) {
-    location.replace(db.getSession() ? '#/inicio' : '#/login');
+async function boot() {
+  try {
+    await store.open();
+  } catch (err) {
+    app.innerHTML = `<div class="welcome"><h1>No se pudo abrir la app</h1><p class="lead">${esc(err.message || err)}</p><p>Si está en modo incógnito, ábrala en una ventana normal del navegador.</p></div>`;
+    return;
   }
+  try { localStorage.removeItem('seid-demo-v1'); localStorage.removeItem('seid-demo-session'); } catch { /* */ }
+  if (!location.hash) history.replaceState(null, '', '#/inicio');
+  document.addEventListener('click', onClick);
+  document.addEventListener('input', onInput);
+  document.addEventListener('change', onChange);
+  document.addEventListener('submit', onSubmit);
+  window.addEventListener('hashchange', render);
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (['inicio', 'ajustes'].includes(parseRoute().name)) render(); });
+  window.addEventListener('appinstalled', () => { installPrompt = null; });
+  window.addEventListener('online', syncSoon);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (auth.isLocked() && !document.querySelector('.lock')) render();
+      checkAvisos();
+      syncSoon();
+    }
+  });
+  api.setAuthLostHandler(() => render());
   render();
   registerSW();
-});
+  checkAvisos();
+  syncSoon(300);
+  setInterval(() => { if (document.visibilityState === 'visible') syncSoon(0); }, 5 * 60 * 1000);
+  if (api.enabled() && 'Notification' in window && Notification.permission === 'granted') api.ensurePush().catch(() => {});
+}
+
+boot();
