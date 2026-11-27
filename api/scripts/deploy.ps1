@@ -51,6 +51,8 @@ function Invoke-Wrangler {
   $err = Get-Content -Raw -ErrorAction SilentlyContinue $errFile
   Remove-Item -Force -ErrorAction SilentlyContinue $errFile
   if ($null -eq $out) { $out = @() }
+  # Node 24 en Windows a veces aborta al salir (libuv UV_HANDLE_CLOSING, 0xC0000409) después de terminar bien.
+  if ($code -eq -1073740791 -and "$err" -match 'UV_HANDLE_CLOSING') { $code = 0 }
   return [pscustomobject]@{ Code = $code; Out = (@($out) -join "`n"); Err = "$err" }
 }
 
@@ -78,7 +80,7 @@ Ok "Listo"
 
 Step "Comprobando sesión de Cloudflare"
 $who = Invoke-Wrangler whoami --json
-if ($who.Code -ne 0) { Fail "No hay sesión de Cloudflare. Ejecute primero:  npx wrangler login  (se abre el navegador) y vuelva a correr este script." }
+if ($who.Out -notmatch '"loggedIn"\s*:\s*true') { Fail "No hay sesión de Cloudflare. Ejecute primero:  npx wrangler login  (se abre el navegador) y vuelva a correr este script." }
 try { $whoJson = $who.Out | ConvertFrom-Json } catch { $whoJson = $null }
 if ($whoJson -and $whoJson.email) { Ok "Sesión: $($whoJson.email)" } else { Ok "Sesión iniciada" }
 

@@ -15,7 +15,7 @@ crons = ["0 12 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "seid-db"
-database_id = "REEMPLAZAR_CON_ID_DE_D1"   # lo completa scripts/deploy.ps1 (o pegue el id de `wrangler d1 create seid-db`)
+database_id = "6fd19883-68c4-4a0b-a7bf-dfdacd184648"   # lo completa scripts/deploy.ps1 (o pegue el id de `wrangler d1 create seid-db`)
 migrations_dir = "migrations"
 
 # Fotos en R2 (OPCIONAL). R2 exige tener una tarjeta o PayPal registrado en Cloudflare

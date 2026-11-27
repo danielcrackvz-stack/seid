@@ -22,7 +22,10 @@ export function wrangler(args, { input, capture = true } = {}) {
     env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },
     maxBuffer: 64 * 1024 * 1024,
   });
-  return { status: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  let status = r.status ?? 1;
+  // Node 24 en Windows a veces aborta al salir (libuv UV_HANDLE_CLOSING, 0xC0000409) después de terminar bien.
+  if (status === 3221226505 && /UV_HANDLE_CLOSING/.test(r.stderr ?? '')) status = 0;
+  return { status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
 /** Ejecuta SQL en D1 y devuelve las filas del último resultado (usa --json). */
