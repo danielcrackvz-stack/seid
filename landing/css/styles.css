@@ -13,11 +13,12 @@
   --blue: #014397;
   --blue-ink: #013171;
   --bolt: #ed8502;
-  --paper: #f4f5f7;
-  --surface: #ffffff;
-  --ink: #14171c;
-  --ink-soft: #39424c;
-  --line: #d8dce2;
+  --paper: #f6f3ee;
+  --surface: #fffdf9;
+  --ink: #1a1816;
+  --ink-soft: #4a4540;
+  --line: #e3ddd5;
+  --navy: #1c222b;
   --focus: #014397;
   --danger: #8b1e2d;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -261,137 +262,50 @@ a:hover { color: var(--blue-ink); }
 }
 
 
-/* Home: sticky header sits over the hero, then becomes solid on scroll */
+/* Home hero is light: the sticky header stays solid (color logo, ink type). */
 
-body.has-hero .site-header {
-  background: transparent;
-  border-bottom-color: transparent;
-}
-body.has-hero .hero {
-  margin-top: calc(var(--header-h) * -1);
-}
-body.has-hero.header-solid .site-header,
-body.has-hero.nav-open .site-header {
-  background: var(--paper);
-  border-bottom-color: var(--line);
-}
-body.has-hero:not(.header-solid):not(.nav-open) .brand__logo--color { display: none; }
-body.has-hero:not(.header-solid):not(.nav-open) .brand__logo--inverse { display: block; }
-body.has-hero:not(.header-solid):not(.nav-open) .site-nav a { color: var(--paper); }
-body.has-hero:not(.header-solid):not(.nav-open) .site-nav a:hover { color: var(--paper); }
-body.has-hero:not(.header-solid):not(.nav-open) .menu-toggle {
-  background: transparent;
-  border-color: rgba(244, 245, 247, 0.45);
-  color: var(--paper);
-}
-body.has-hero:not(.header-solid):not(.nav-open) .site-header :focus-visible {
-  outline-color: var(--paper);
-}
-body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary {
-  background: var(--surface);
-  color: var(--blue);
-}
-body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
-  background: var(--paper);
-  color: var(--blue-ink);
-}
-
-/* Hero */
+/* Hero — light surface, mosaic of real work (tiles sized to stay sharp at 2×) */
 
 .hero {
   position: relative;
-  isolation: isolate;
   display: flex;
   align-items: center;
-  min-height: 100svh;
-  padding: calc(var(--header-h) + 1.85rem) 0 5.5rem;
-  color: var(--paper);
-  background: var(--blue);
-  overflow: visible;
+  padding: 2.5rem 0 3.5rem;
+  color: var(--ink);
+  background: var(--paper);
 }
 
-.hero__media,
-.hero__scrim {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.hero__media { z-index: 0; }
-.hero__media img,
-.hero__media picture,
-.hero__media source { width: 100%; height: 100%; }
-.hero__media img {
-  object-fit: cover;
-  object-position: center 42%;
-  max-width: none;
-}
-
-/* Split layout: text + framed real photo at native-safe size */
 .hero__content {
-  position: relative;
-  z-index: 2;
   display: grid;
   gap: 2rem;
   align-items: center;
 }
 .hero__offer { max-width: 36rem; }
-.hero__photo {
-  margin: 0;
-  width: min(100%, 24rem);
-  justify-self: start;
-  border-radius: calc(var(--radius) + 2px);
-  background: var(--blue-ink);
-  box-shadow: 0 22px 50px rgba(8, 14, 28, 0.38);
-  outline: 1px solid rgba(244, 245, 247, 0.18);
-  outline-offset: 0;
-}
-.hero__photo picture {
-  display: block;
-  width: 100%;
-  border-radius: inherit;
-  overflow: hidden;
-  background: var(--blue-ink);
-}
-.hero__photo img,
-.hero__photo picture {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.hero__photo img {
-  object-fit: contain;
-  object-position: center;
-  max-width: 100%;
-  /* Never paint the 722px photo larger than ~1.05× its native size at 2× DPR */
-  /* 24rem = 384px CSS → 768px at 2×, just over 722px; acceptable and far sharper than full-bleed. */
-}
 
 .hero__meta {
-  margin: 0 0 1.15rem;
-  color: color-mix(in srgb, var(--paper) 82%, var(--blue));
+  margin: 0 0 0.85rem;
+  color: var(--ink-soft);
   font-size: var(--text-meta);
   letter-spacing: 0.01em;
   line-height: 1.45;
 }
 
 .hero h1 {
-  margin: 0 0 1.15rem;
+  margin: 0 0 1.1rem;
   font-size: var(--text-h1);
   font-weight: 575;
   line-height: 1.08;
   letter-spacing: -0.03em;
   text-wrap: balance;
-  max-width: 16ch;
-  color: var(--paper);
+  max-width: 22ch;
+  color: var(--ink);
 }
 
 .hero .lead {
   margin: 0 0 1.75rem;
-  max-width: 44ch;
-  color: color-mix(in srgb, var(--paper) 92%, var(--blue));
+  max-width: 46ch;
+  color: var(--ink-soft);
   line-height: 1.6;
-  letter-spacing: 0.01em;
   font-size: 1.125rem;
 }
 
@@ -402,52 +316,128 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
   gap: 0.75rem 1.1rem;
 }
 
-.btn--on-dark {
-  color: var(--paper);
+.hero-mosaic {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
-.btn--on-dark:hover { color: var(--paper); }
 
-.hero--blur .hero__scrim {
-  z-index: 1;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--blue) 86%, transparent) 0%, color-mix(in srgb, var(--blue) 70%, transparent) 46%, color-mix(in srgb, var(--blue) 50%, transparent) 100%),
-    linear-gradient(180deg, color-mix(in srgb, var(--blue-ink) 18%, transparent) 0%, color-mix(in srgb, var(--ink) 42%, transparent) 100%);
+.hero-mosaic__wide {
+  grid-column: 1 / -1;
+}
+
+.hero-tile {
+  display: block;
+  position: relative;
+  text-decoration: none;
+  color: var(--ink);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.hero-tile picture {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--line);
+}
+.hero-tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: center 40%;
+  max-width: none;
+  transition: transform 220ms var(--ease-out);
+}
+
+.hero-tile--aires img {
+  object-position: 50% 50%;
+}
+.hero-tile--cerco img {
+  aspect-ratio: 5 / 2;
+  object-position: 35% 40%;
+  transform: scale(1.08);
+  transform-origin: center;
+}
+
+.hero-tile span {
+  display: block;
+  padding: 0.45rem 0.15rem 0.15rem;
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-tile:hover img { transform: scale(1.03); }
+  .hero-tile--cerco:hover img { transform: scale(1.12); }
+  .hero-tile:hover span { color: var(--blue); }
+}
+
+.hero-tile:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 @media (max-width: 899px) {
-  .hero {
-    align-items: start;
-    padding: calc(var(--header-h) + 1.15rem) 0 5.5rem;
-  }
-  .hero__content { gap: 1.25rem; }
-  .hero__meta { margin-bottom: 0.85rem; }
+  .hero { padding: 1.5rem 0 5.5rem; }
+  .hero__content { gap: 1.5rem; }
   .hero h1 { margin-bottom: 0.85rem; }
-  .hero .lead { margin-bottom: 1.2rem; }
-  .hero__photo { justify-self: stretch; width: 100%; max-width: 24rem; }
+  .hero .lead { margin-bottom: 1.15rem; font-size: 1.0625rem; }
+  .hero-mosaic {
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1.25rem;
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--blue) 35%, var(--line)) transparent;
+  }
+  .hero-mosaic li,
+  .hero-mosaic__wide {
+    flex: 0 0 11.75rem;
+    grid-column: auto;
+    scroll-snap-align: start;
+  }
+  .hero-mosaic__wide { flex-basis: 15.5rem; }
+  .hero-tile--cerco img { aspect-ratio: 4 / 3; }
 }
 
 @media (min-width: 900px) {
   .hero {
-    padding: calc(var(--header-h) + 5rem) 0 5rem;
+    padding: 3.5rem 0 5rem;
+    min-height: calc(100svh - var(--header-h));
   }
   .hero__content {
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-    gap: 4rem;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 32rem);
+    gap: 3.5rem;
     align-items: center;
   }
   .hero__offer { max-width: 38rem; }
-  .hero__photo {
-    justify-self: end;
-    width: 24rem;
-  }
+  .hero-mosaic { gap: 0.6rem; }
 }
 
 .hero__offer {
   animation: hero-in 480ms var(--ease-out) both;
 }
-.hero__photo {
+.hero-mosaic {
   animation: hero-in 560ms var(--ease-out) both;
-  animation-delay: 80ms;
+  animation-delay: 60ms;
 }
 
 @keyframes hero-in {
@@ -459,8 +449,8 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
 
 .section { padding: var(--space) 0; }
 .section--invert {
-  background: var(--blue);
-  color: var(--surface);
+  background: #efe8df;
+  color: var(--ink);
 }
 .section--ink {
   background: var(--ink);
@@ -567,6 +557,7 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
   display: grid;
   gap: 1.75rem 1.25rem;
 }
+.service-card[id] { scroll-margin-top: calc(var(--header-h) + 0.75rem); }
 .service-card {
   margin: 0;
   display: flex;
@@ -835,9 +826,11 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
   display: grid;
   gap: 2.25rem;
 }
-.section--invert a { color: var(--surface); }
+.section--invert a { color: var(--blue); }
+.section--invert a:hover { color: var(--blue-ink); }
 .section--invert .section-intro { max-width: 34rem; }
-.section--invert .btn--text { color: var(--surface); }
+.section--invert .btn--text { color: var(--blue); }
+.section--invert .btn--text:hover { color: var(--blue-ink); }
 
 .form {
   background: var(--surface);
@@ -908,7 +901,7 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
 /* Footer */
 
 .site-footer {
-  background: var(--ink);
+  background: #1c1a18;
   color: var(--paper);
   padding: 3rem 0 6.25rem;
   font-size: 0.98rem;
@@ -920,7 +913,7 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
 .footer-tagline {
   margin: 0.7rem 0 0;
   max-width: 22rem;
-  color: color-mix(in srgb, var(--paper) 74%, var(--blue) 8%);
+  color: color-mix(in srgb, var(--paper) 72%, #1c1a18);
 }
 .footer-meta { margin: 0.35rem 0 0; }
 .footer-links {
@@ -989,7 +982,8 @@ body.has-hero:not(.header-solid):not(.nav-open) .header-cta.btn--primary:hover {
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .hero__offer, .hero__photo { animation: none; }
+  .hero__offer, .hero-mosaic { animation: none; }
+  .hero-tile:hover img, .hero-tile--cerco:hover img { transform: none; }
   .btn, .wa-float, .service-card__photo img, .lightbox__nav, .lightbox__close {
     transition: none;
   }

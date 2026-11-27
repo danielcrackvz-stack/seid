@@ -19,7 +19,7 @@ En la landing no se publican correo, dirección de oficina ni NIT. El contacto p
 
 ## Color
 
-Una sola color de marca: el azul del logo. El naranja del rayo es un acento mínimo, no un segundo color de interfaz.
+Una sola color de marca: el azul del logo, usado solo como acento (botones, enlaces, títulos pequeños, iconos y foco). El naranja del rayo permanece únicamente en el logo, no en la interfaz. Las superficies grandes son papel cálido o blanco; no inundar hero, secciones ni pie con #014397.
 
 Muestreo del arte oficial (mediana de los píxeles del logo, 24 nov 2026). Entre paréntesis, la aproximación descrita al entregar el archivo.
 
@@ -28,11 +28,11 @@ Muestreo del arte oficial (mediana de los píxeles del logo, 24 nov 2026). Entre
 | `--blue` / `--color-brand` | `#014397` (~`#0B4A9E`) | Color de marca. Botón primario, enlaces, foco, palabra de marca, una sección invertida si hace falta. |
 | `--blue-ink` | `#013171` | Azul más oscuro para hover del botón y texto sobre papel cuando `--blue` no alcanza contraste de cuerpo. |
 | `--bolt` / `--color-accent` | `#ED8502` (~`#F08A00`) | Solo el rayo y la regla del logo. No usar en botones, fondos de sección, iconos de servicio ni hovers masivos. |
-| `--paper` | `#F4F5F7` | Fondo de página. Neutro frío, para convivir con el azul (no crema cálido ni blanco puro). |
-| `--surface` | `#FFFFFF` | Superficie elevada: formulario, campos. |
-| `--ink` | `#14171C` | Texto de cuerpo y títulos. Tinta casi negra, no gris. El cuerpo no se aclara para «suavizar». |
-| `--ink-soft` | `#39424C` | Metadatos, pies de foto, texto de apoyo. Neutro con un matiz frío del azul de marca. Sigue por encima de 4.5:1 sobre `--paper`. |
-| `--line` | `#D8DCE2` | Separadores de 1 px. No usar bordes de color ni barras laterales decorativas. |
+| `--paper` | `#F6F3EE` | Fondo de página. Neutro cálido (off-white), para que el azul de marca no inunde la pantalla. |
+| `--surface` | `#FFFDF9` | Superficie elevada: formulario, campos, teselas. |
+| `--ink` | `#1A1816` | Texto de cuerpo y títulos. Tinta cálida casi negra, no gris. El cuerpo no se aclara para «suavizar». |
+| `--ink-soft` | `#4A4540` | Metadatos, pies de foto, texto de apoyo. Neutro cálido. Sigue por encima de 4.5:1 sobre `--paper`. |
+| `--line` | `#E3DDD5` | Separadores de 1 px. No usar bordes de color ni barras laterales decorativas. |
 | `--focus` | `#014397` | Anillo de foco visible (`3px solid`, offset 3px). |
 | `--danger` | `#8B1E2D` | Solo errores de formulario. |
 
@@ -49,7 +49,7 @@ El logo es la única lettering característica. La interfaz no imita las letras 
 - **Familia de interfaz:** Instrument Sans (variable, autohospedada en `landing/fonts/instrument-sans.woff`), con reserva `system-ui, "Segoe UI", sans-serif`.
 - **Una sola familia** en landing y app, con jerarquía por tamaño, peso y espacio. No usar Inter, Geist, Outfit, Roboto ni Open Sans.
 - **Cuerpo:** 1.0625rem (17px) / interlineado 1.55, peso 400, color `--ink`, medida 45–75ch (ideal ~65ch).
-- **Título de página (hero):** `--text-h1` = `clamp(2.35rem, 6.4vw, 4.2rem)`, peso 550–600, interlineado 1.08, tracking no menor a `-0.03em`, `text-wrap: balance`. Máximo dos líneas en cualquier ancho. El chapéu sobre el hero (quién y dónde) no es un eyebrow genérico: es el dato de identidad, en `--text-meta`, sin versalitas.
+- **Título de página (hero):** `--text-h1` = `clamp(2.35rem, 6.4vw, 4.2rem)`, peso 550–600, interlineado 1.08, tracking no menor a `-0.03em`, `text-wrap: balance`. Máximo dos líneas en cualquier ancho. El chapéu sobre el hero (quién y dónde) no es un eyebrow genérico: es el dato de identidad, en `--text-meta`, sin versalitas. El hero va sobre papel cálido, con un mosaico de trabajos; el azul no es fondo de portada.
 - **Títulos de sección:** `--text-h2` = `clamp(1.85rem, 3.4vw, 2.55rem)`, peso 550–600, más espacio encima que debajo.
 - **Subtítulos (fichas, razones, pasos, legal h2):** `--text-h3` = `1.25rem`, peso 575–600. Deben distinguirse del cuerpo (1.0625rem / 400) por tamaño y peso, no solo por peso.
 - **Etiquetas y navegación:** 0.95–1rem, peso 500. No usar eyebrows (rótulos en versalitas sobre el título). Las etiquetas de grupo de servicios van en caja de oración, peso 600, sin tracking abierto. Si un título necesita contexto, ese contexto va en el propio título o en el párrafo que lo sigue.
