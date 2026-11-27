@@ -1,5 +1,5 @@
 /* Configuración pública de la app SEID. */
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.0.1';
 export const WHATSAPP_NUMBER = '59173643342';
 export const TECNICO_NOMBRE = 'Ing. Abel Galarza';
 
