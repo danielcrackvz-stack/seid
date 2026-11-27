@@ -1,6 +1,6 @@
 # SEID — sistema de diseño
 
-Documento de tokens y reglas para la landing pública y la aplicación de administración. Última actualización: 25 de noviembre de 2026 (America/La_Paz).
+Documento de tokens y reglas para la landing pública y la aplicación de administración. Última actualización: 27 de noviembre de 2026 (America/La_Paz).
 
 Fuentes de criterio: brief del Ing. Abel Galarza y de Daniel; logo oficial de SEID; principios de Impeccable (mode Persuade, craft floor, typeset, layout, animate), Emil Kowalski (animación con propósito, ease-out, duraciones cortas) y Taste Skill (una paleta, tipografía con jerarquía, sin tropes genéricos de IA).
 
@@ -31,12 +31,12 @@ Muestreo del arte oficial (mediana de los píxeles del logo, 24 nov 2026). Entre
 | `--paper` | `#F4F5F7` | Fondo de página. Neutro frío, para convivir con el azul (no crema cálido ni blanco puro). |
 | `--surface` | `#FFFFFF` | Superficie elevada: formulario, campos. |
 | `--ink` | `#14171C` | Texto de cuerpo y títulos. Tinta casi negra, no gris. El cuerpo no se aclara para «suavizar». |
-| `--ink-soft` | `#3A4048` | Metadatos, pies de foto, texto de apoyo. Sigue por encima de 4.5:1 sobre `--paper`. |
+| `--ink-soft` | `#39424C` | Metadatos, pies de foto, texto de apoyo. Neutro con un matiz frío del azul de marca. Sigue por encima de 4.5:1 sobre `--paper`. |
 | `--line` | `#D8DCE2` | Separadores de 1 px. No usar bordes de color ni barras laterales decorativas. |
 | `--focus` | `#014397` | Anillo de foco visible (`3px solid`, offset 3px). |
 | `--danger` | `#8B1E2D` | Solo errores de formulario. |
 
-WhatsApp no tiñe la interfaz. El CTA dice «WhatsApp», pero el botón es azul de marca (o tinta sobre la sección invertida). No usar el verde `#25D366` en botones, fondos ni el botón flotante.
+WhatsApp no tiñe la interfaz. El CTA dice «WhatsApp», pero el botón es azul de marca. El formulario de cotización (tarjeta blanca sobre la sección invertida) también usa el primario azul, no un botón negro. Sobre el hero o la sección azul, el CTA invertido es papel con texto azul (`btn--on-blue`). No usar el verde `#25D366` en botones, fondos ni el botón flotante.
 
 No hay degradados decorativos de marca, blobs, glassmorphism ni paletas arcoíris. La única excepción es un velo (scrim) de `--blue` o tinta sobre una fotografía, para que el texto siga siendo legible; no es un degradado de adorno. Los neutros pueden tener un matiz frío mínimo; no introducir un segundo acento (teal, ámbar, etc.).
 
@@ -49,11 +49,13 @@ El logo es la única lettering característica. La interfaz no imita las letras 
 - **Familia de interfaz:** Instrument Sans (variable, autohospedada en `landing/fonts/instrument-sans.woff`), con reserva `system-ui, "Segoe UI", sans-serif`.
 - **Una sola familia** en landing y app, con jerarquía por tamaño, peso y espacio. No usar Inter, Geist, Outfit, Roboto ni Open Sans.
 - **Cuerpo:** 1.0625rem (17px) / interlineado 1.55, peso 400, color `--ink`, medida 45–75ch (ideal ~65ch).
-- **Título de página (hero):** `clamp(2.25rem, 6vw, 4.25rem)`, peso 550–600, interlineado 1.08, tracking no menor a `-0.03em`, `text-wrap: balance`. Máximo dos líneas en cualquier ancho.
-- **Títulos de sección:** `clamp(1.75rem, 3vw, 2.35rem)`, peso 550–600, más espacio encima que debajo.
-- **Etiquetas y navegación:** 0.95–1rem, peso 500. No usar eyebrows (rótulos en versalitas sobre el título). Si un título necesita contexto, ese contexto va en el propio título o en el párrafo que lo sigue.
-- **Versalitas** solo en rótulos muy cortos (por ejemplo, un estado), con tracking abierto (~0.08em). Nunca un párrafo en mayúsculas.
-- Números tabulares (`font-variant-numeric: tabular-nums`) en la app cuando hay montos, fechas u OT.
+- **Título de página (hero):** `--text-h1` = `clamp(2.35rem, 6.4vw, 4.2rem)`, peso 550–600, interlineado 1.08, tracking no menor a `-0.03em`, `text-wrap: balance`. Máximo dos líneas en cualquier ancho. El chapéu sobre el hero (quién y dónde) no es un eyebrow genérico: es el dato de identidad, en `--text-meta`, sin versalitas.
+- **Títulos de sección:** `--text-h2` = `clamp(1.85rem, 3.4vw, 2.55rem)`, peso 550–600, más espacio encima que debajo.
+- **Subtítulos (fichas, razones, pasos, legal h2):** `--text-h3` = `1.25rem`, peso 575–600. Deben distinguirse del cuerpo (1.0625rem / 400) por tamaño y peso, no solo por peso.
+- **Etiquetas y navegación:** 0.95–1rem, peso 500. No usar eyebrows (rótulos en versalitas sobre el título). Las etiquetas de grupo de servicios van en caja de oración, peso 600, sin tracking abierto. Si un título necesita contexto, ese contexto va en el propio título o en el párrafo que lo sigue.
+- **Versalitas** solo en rótulos muy cortos (por ejemplo, un estado), con tracking abierto (~0.08em). Nunca un párrafo en mayúsculas. Las cabeceras de la tabla de precios van en caja de oración.
+- Números tabulares (`font-variant-numeric: tabular-nums`) en montos de la tabla de precios de la landing y, en la app, cuando hay montos, fechas u OT.
+- Cuerpo con `text-wrap: pretty`. Superficies del navegador temidas con la paleta: `::selection`, `caret-color`, `scrollbar-color` y anillo de foco.
 
 ## Espaciado
 

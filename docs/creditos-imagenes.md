@@ -6,6 +6,15 @@ Las fotografías de aires acondicionados, electricidad, paneles, transformadores
 
 No se publicaron en la landing algunas tomas de detalle de herrajes, un retrato de trabajo que mostraba a una persona y fotos muy similares a otras ya usadas en el mismo servicio.
 
+
+## Portada (hero)
+
+La foto nítida enmarcada de la portada es un trabajo real de SEID (la misma toma de tres unidades exteriores Samsung y Gree en un patio de Santa Cruz que se usa en la ficha de instalación de aires). El archivo de origen es una foto de WhatsApp de 722 × 1600 px, recortada a 722 × 542 px. No se agrandó con inteligencia artificial.
+
+Esa misma toma, muy desenfocada y teñida con el azul de marca (#014397), se usa solo como fondo atmosférico a pantalla completa. Así el fondo puede cubrir el escritorio sin estirar la foto real. La foto nítida se muestra a un ancho máximo de 24 rem (384 px CSS, unos 768 px en pantallas 2×), cerca del tamaño nativo, para que se vea firme en escritorio y en el celular.
+
+No se usó una foto de archivo (Pexels/Unsplash) en la portada: las candidatas de unidades en azotea o fachada eran nítidas, pero el paisaje no correspondía a Santa Cruz y competía con el trabajo real.
+
 ## Fotografías con licencia libre (servicios sin foto propia en el envío)
 
 Pexels y Unsplash permiten el uso comercial sin exigir atribución. Wikimedia Commons (CC BY-SA) sí exige crédito, y ese crédito aparece bajo la ficha de cerco eléctrico.
