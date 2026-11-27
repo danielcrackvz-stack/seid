@@ -4,3 +4,11 @@ node_modules/
 .env
 dist/
 .DS_Store
+
+# Material de trabajo local (fotos originales, capturas, previsualizaciones)
+fotos-hd/
+app-shots/
+app-shots-hd/
+audit-shots/
+_site/
+*.bundle

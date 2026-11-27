@@ -5,4 +5,4 @@ Allow: /
 Disallow: /app/
 Disallow: /seid/app/
 
-Sitemap: https://danielcrackvz-stack.github.io/seid/sitemap.xml
+Sitemap: __SITE_ORIGIN__/sitemap.xml
