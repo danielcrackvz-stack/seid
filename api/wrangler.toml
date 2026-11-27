@@ -1,0 +1,42 @@
+# SEID API — Cloudflare Workers (plan gratuito)
+name = "seid-api"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+# Sin "nodejs_compat": el código solo usa WebCrypto y fetch.
+
+[observability]
+enabled = true
+
+# Recordatorios: todos los días a las 12:00 UTC = 08:00 en Bolivia (America/La_Paz, UTC-4).
+[triggers]
+crons = ["0 12 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "seid-db"
+database_id = "REEMPLAZAR_CON_ID_DE_D1"   # lo completa scripts/deploy.ps1 (o pegue el id de `wrangler d1 create seid-db`)
+migrations_dir = "migrations"
+
+# Fotos en R2 (OPCIONAL). R2 exige tener una tarjeta o PayPal registrado en Cloudflare
+# aunque no se pase del plan gratis. Sin este bloque, las fotos se guardan en D1.
+# Para activarlo: `npx wrangler r2 bucket create seid-fotos` y quite los # de abajo.
+# [[r2_buckets]]
+# binding = "FOTOS"
+# bucket_name = "seid-fotos"
+
+[vars]
+ALLOWED_ORIGINS = "https://danielcrackvz-stack.github.io,https://seid.com.bo,https://www.seid.com.bo"
+APP_BASE_URL = "/seid/app/"
+VAPID_SUBJECT = "https://danielcrackvz-stack.github.io/seid/"
+TIMEZONE = "America/La_Paz"
+REMINDER_MONTHS = "6"
+REMINDER_DAYS_BEFORE = "15"
+REMIND_DAY_OF = "true"
+REMIND_SERVICES = "mantenimiento-aire,instalacion-aire,instalacion-inverter"
+TOKEN_TTL_DAYS = "365"
+PHOTO_MAX_BYTES = "1000000"
+DOC_MAX_BYTES = "1500000"
+
+# Secretos (no van aquí; se cargan con `npx wrangler secret put`):
+#   JWT_SECRET, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
