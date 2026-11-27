@@ -11,7 +11,7 @@ App instalable para el Ing. Abel Galarza: registra trabajos y mantenimientos, no
 - **Firmas** en canvas (`js/signature.js`), sin librerías externas. **PDF** con jsPDF alojado en `js/vendor/` (`js/pdf.js`). Se comparte con Web Share o se descarga.
 - **Recordatorios:** el mantenimiento de aire y las instalaciones de aire o inverter programan el próximo mantenimiento a los 6 meses, con aviso 15 días antes. Si el aviso se toca, abre `#/registro/<id>`.
 - **PIN de 4 dígitos** guardado con PBKDF2 (`js/auth.js`). Solo protege la pantalla: «Olvidé mi PIN» lo cambia sin borrar datos.
-- **Respaldo** en JSON (exportar, compartir e importar) desde Ajustes. Los datos de ejemplo se cargan y se borran desde Ajustes y nunca se suben ni se respaldan.
+- **Respaldo** en JSON (exportar, compartir e importar) desde Ajustes.
 
 ## Servidor (opcional)
 

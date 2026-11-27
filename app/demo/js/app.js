@@ -141,8 +141,8 @@ function viewBienvenida() {
       <p class="hint">El PIN protege la app si presta el teléfono. Se pide al abrirla después de 15 minutos sin uso.</p>
       ${welcomeErr ? `<p class="error" role="alert">${esc(welcomeErr)}</p>` : ''}
       <button class="btn btn--block btn--lg" type="submit" name="modo" value="vacio">Empezar a usar</button>
-      <button class="btn btn--ghost btn--block" type="submit" name="modo" value="ejemplo">Ver primero con datos de ejemplo</button>
     </form>
+    <div data-install-slot>${installCard()}</div>
     <p class="hint center">Sus datos se guardan en este teléfono y funcionan sin internet.</p>
   </div>`;
 }
@@ -179,6 +179,7 @@ function viewLogin() {
       <button class="btn btn--block btn--lg" type="submit">Entrar</button>
     </form>
     <button type="button" class="btn btn--ghost btn--block" data-act="login-luego">Usar sin conexión por ahora</button>
+    <div data-install-slot>${installCard()}</div>
   </div>`;
 }
 
@@ -192,7 +193,6 @@ function viewInicio() {
   const mes = rec.todayISO().slice(0, 7);
   const delMes = regs.filter((r) => r.fechaInicio.slice(0, 7) === mes);
   const terminadoMes = delMes.filter((r) => r.estado === 'terminado').reduce((s, r) => s + (rec.totalRegistro(r) || 0), 0);
-  const demo = sample.hayEjemplo();
   const lastBackup = store.meta('lastBackupAt');
   const needBackup = regs.some((r) => !r.demo) && (!lastBackup || Date.now() - new Date(lastBackup) > 7 * 86400000);
 
@@ -214,10 +214,6 @@ function viewInicio() {
     </section>` : '';
 
   return screen(`
-    ${demo ? `<div class="banner">
-        <p><strong>Está viendo datos de ejemplo.</strong> Cuando quiera empezar con sus propios clientes, bórrelos.</p>
-        <button class="btn btn--sm" type="button" data-act="empezar">Empezar a usar</button>
-      </div>` : ''}
     ${needBackup ? `<div class="banner banner--quiet">
         <p><strong>Haga una copia de respaldo.</strong> ${lastBackup ? `La última fue el ${esc(fmt.fecha(lastBackup.slice(0, 10)))}.` : 'Todavía no tiene ninguna.'} Así no pierde nada si cambia de teléfono.</p>
         <button class="btn btn--ghost btn--sm" type="button" data-act="backup">Respaldar ahora</button>
@@ -261,6 +257,13 @@ function avisoCard({ registro: r, dias }) {
       <button class="icon-btn icon-btn--sm" type="button" data-descartar="${r.id}" aria-label="Descartar recordatorio de ${esc(r.cliente?.nombre)}">${ICO.close}</button>
     </div>
   </article>`;
+}
+
+/* Actualiza el aviso de instalación sin redibujar formularios a medio llenar. */
+function refreshInstall() {
+  const slots = document.querySelectorAll('[data-install-slot]');
+  if (slots.length) for (const slot of slots) slot.innerHTML = installCard();
+  else render();
 }
 
 function installCard() {
@@ -637,7 +640,6 @@ function viewRegistro(id) {
       </div>
       ${estadoPill(r)}
     </div>
-    ${r.demo ? '<p class="note">Registro de ejemplo.</p>' : ''}
     <div class="row-gap">
       ${waIcon(r.cliente?.telefono, `Hola, le escribe ${tecnico()} de SEID.`, 'WhatsApp')}
       ${!r.bloqueado ? `<button type="button" class="btn btn--ghost btn--sm" data-pdf="${r.id}" data-mode="share">${ICO.pdf}Ver PDF</button>` : ''}
@@ -1112,17 +1114,9 @@ function viewAjustes() {
     <section class="section">
       <h2 class="section__title">Sincronización</h2>
       <div class="card stack">
-        <p>${api.enabled() ? 'Conectado al servidor de SEID.' : 'Por ahora todo queda en este teléfono. La copia en la nube llega en la próxima versión, sin perder lo que registre desde hoy.'}</p>
+        <p>${api.enabled() ? 'Conectado al servidor de SEID.' : 'Los registros se guardan en este teléfono.'}</p>
         <p class="muted small" id="pending-info"></p>
         ${api.enabled() ? '<button type="button" class="btn btn--ghost btn--block" data-act="sync">Sincronizar ahora</button>' : ''}
-      </div>
-    </section>
-    <section class="section">
-      <h2 class="section__title">Datos de ejemplo</h2>
-      <div class="card stack">
-        ${sample.hayEjemplo()
-          ? '<p>Hay datos de ejemplo cargados. Al borrarlos, sus registros reales se mantienen.</p><button type="button" class="btn btn--block" data-act="empezar">Borrar ejemplos y empezar</button>'
-          : '<p>Puede cargar unos registros ficticios para mostrar la app. Después se borran con un toque, sin tocar sus datos.</p><button type="button" class="btn btn--ghost btn--block" data-act="cargar-ejemplo">Cargar datos de ejemplo</button>'}
       </div>
     </section>
     <section class="section">
@@ -1387,21 +1381,16 @@ async function onClick(e) {
       if (draft && !draft.nombre) draft = null;
       go('#/nuevo');
       break;
-    case 'empezar': {
-      const ok = await confirmDialog({ title: 'Empezar a usar', body: 'Se borrarán los datos de ejemplo. Sus registros reales (si tiene) se mantienen.', ok: 'Borrar ejemplos' });
-      if (ok) { await sample.borrarEjemplo(); toast('Listo. Ya puede registrar sus trabajos.'); go('#/inicio'); }
-      break;
-    }
     case 'backup': await doBackup(); break;
     case 'notif': await enableNotifications(); break;
     case 'notif-test': {
       if (api.enabled() && store.meta('pushSub')) {
-        try { await api.testPush(); toast('Aviso de prueba enviado'); } catch (err) { toast(err.message); }
+        try { await api.testPush(); toast('Aviso enviado'); } catch (err) { toast(err.message); }
         break;
       }
       const reg = await navigator.serviceWorker.ready;
       const r = rec.registros()[0];
-      await reg.showNotification('Aviso de prueba', { body: 'Así le avisaremos de los mantenimientos. Toque para abrir.', icon: 'icons/icon-192.png', tag: 'prueba', data: { url: r ? `#/registro/${r.id}` : '#/inicio' } });
+      await reg.showNotification('SEID · Avisos activados', { body: 'Así le avisaremos de los mantenimientos. Toque para abrir.', icon: 'icons/icon-192.png', tag: 'seid-avisos-ok', data: { url: r ? `#/registro/${r.id}` : '#/inicio' } });
       break;
     }
     case 'install':
@@ -1410,11 +1399,10 @@ async function onClick(e) {
         const ch = await installPrompt.userChoice;
         installPrompt = null;
         if (ch.outcome === 'accepted') toast('App instalada');
-        render();
+        refreshInstall();
       }
       break;
-    case 'install-hide': await store.setMeta('installHidden', true); render(); break;
-    case 'cargar-ejemplo': await sample.cargarEjemplo(); toast('Datos de ejemplo cargados'); go('#/inicio'); break;
+    case 'install-hide': await store.setMeta('installHidden', true); refreshInstall(); break;
     case 'borrar-todo': {
       const ok = await confirmDialog({ title: '¿Borrar todos los datos?', body: 'Se borrarán todos los clientes, trabajos, mantenimientos, notas y firmas de este teléfono. No se puede deshacer.', ok: 'Borrar todo', danger: true });
       if (!ok) break;
@@ -1553,7 +1541,6 @@ async function onSubmit(e) {
     }
     await store.setMeta('tecnicoNombre', nombre);
     await auth.setPin(pin);
-    if (modo === 'ejemplo') await sample.cargarEjemplo();
     await store.setMeta('setupDone', true);
     store.requestPersist().then((p) => store.setMeta('persisted', p));
     go('#/inicio');
@@ -1646,6 +1633,21 @@ function registerSW() {
   });
 }
 
+// Se escucha desde el arranque: Chrome puede ofrecer la instalación antes de que abra la base de datos.
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  if (!store.data().meta || !app.dataset.view) return; // todavía no se dibujó nada; la vista lo mostrará
+  const slot = document.querySelector('[data-install-slot]');
+  if (slot) slot.innerHTML = installCard();
+  else if (['inicio', 'ajustes'].includes(parseRoute().name)) render();
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  for (const slot of document.querySelectorAll('[data-install-slot]')) slot.innerHTML = '';
+  toast('App instalada. Ábrala desde el ícono SEID.');
+});
+
 async function boot() {
   try {
     await store.open();
@@ -1654,14 +1656,14 @@ async function boot() {
     return;
   }
   try { localStorage.removeItem('seid-demo-v1'); localStorage.removeItem('seid-demo-session'); } catch { /* */ }
+  // Limpia registros de muestra que hayan quedado de versiones anteriores (nunca se sincronizan).
+  if (sample.hayEjemplo()) await sample.borrarEjemplo();
   if (!location.hash) history.replaceState(null, '', '#/inicio');
   document.addEventListener('click', onClick);
   document.addEventListener('input', onInput);
   document.addEventListener('change', onChange);
   document.addEventListener('submit', onSubmit);
   window.addEventListener('hashchange', render);
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (['inicio', 'ajustes'].includes(parseRoute().name)) render(); });
-  window.addEventListener('appinstalled', () => { installPrompt = null; });
   window.addEventListener('online', syncSoon);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
