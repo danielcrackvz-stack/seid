@@ -1,5 +1,5 @@
 /* Configuración pública de la app SEID. */
-export const APP_VERSION = '2.0.1';
+export const APP_VERSION = '2.0.2';
 export const WHATSAPP_NUMBER = '59173643342';
 export const TECNICO_NOMBRE = 'Ing. Abel Galarza';
 
@@ -9,4 +9,4 @@ export const TECNICO_NOMBRE = 'Ing. Abel Galarza';
  * Ejemplo cuando exista el backend: 'https://api.seid.com.bo'
  * Si se activa, agregue ese origen a connect-src en la CSP de index.html.
  */
-export const API_BASE_URL = '';
+export const API_BASE_URL = 'https://seid-api.seidbolivia.workers.dev';

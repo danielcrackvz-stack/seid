@@ -1,6 +1,6 @@
 /* Service worker de SEID: funciona sin internet, avisos de mantenimiento
  * y apertura del registro al tocar una notificación. */
-const VERSION = 'seid-app-v2.0.1';
+const VERSION = 'seid-app-v2.0.2';
 const ASSETS = [
   './',
   './index.html',
